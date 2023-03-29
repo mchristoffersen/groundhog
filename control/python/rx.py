@@ -1,9 +1,12 @@
+#!/home/mchristo/miniconda3/envs/py3/bin/python
+import sys
+sys.path.append("/home/mchristo/proj/ext/uhd/host/build/python")
 import uhd
 import numpy as np
 import matplotlib.pyplot as plt
 import signal
 import multiprocessing
-import h5py
+#import h5py
 import argparse
 import os
 
@@ -163,53 +166,107 @@ def worker(q, usrp, stack, trig, trace_len, fs, pre_trig=32):
     return 0
 
 
-def main():
+def cli():
     parser = argparse.ArgumentParser(description="Impulse radar receiver")
     parser.add_argument(
         "--stack",
         "-s",
         type=int,
-        default=10000,
-        help="how many pulses to stack (default = 10k)",
+        default=5000,
+        help="Pulses stacked per trace (default = 5000)",
     )
     parser.add_argument(
         "--trace_length",
         "-l",
         type=int,
         default=512,
-        help="Samples in each trace (default = 512)",
+        help="Samples per trace (default = 512)",
     )
     parser.add_argument(
         "--trigger",
         "-t",
         type=float,
-        default=0.005,
-        help="Trigger threshold (default = 0.005v)",
+        default=25,
+        help="Trigger threshold (default = 25)",
+    )
+    parser.add_argument(
+        "--rate",
+        "-r",
+        type=int,
+        default=20000000,
+        help="Sampling rate (default = 20 MHz)"
+    )
+    parser.add_argument(
+        "--prf",
+        "-p",
+        type=int,
+        default=-1,
+        help="Pulse repetition frequency (default = autodetect)"
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    # High priority
-    os.nice(-20)
+
+def main():
+    # Get command line arguments
+    args = cli()
+
+    # Set high process priority
+    print("Skipping nice set")
+    #os.nice(-20)
 
     # Set up USRP
+    usrp = uhd.usrp.MultiUSRP("type=usrp2")
 
-    usrp = uhd.usrp.MultiUSRP()
+    center_freq = 0  # could potentially use DDC to reduce OTW data rate
+    gain = 0  # no gain with LFRX
 
-    center_freq = 0  # Hz
-    sample_rate = 20e6  # Hz
-    gain = 0  # dB
 
-    usrp.set_rx_rate(sample_rate, 0)
+    num_samps = 2000000 
+    samps = usrp.recv_num_samps(
+        num_samps, # Number of samples
+        0, # Frequency in Hz
+        20e6, # Sampling rate
+        [0], # Receive on channel 0
+        0, # 80 dB of RX gain
+    )
+    print(samps)
+    return 1
+
+    #samps.tofile('samples.dat')
+
+    # Tune USRP
+    usrp.set_rx_rate(args.rate, 0)
     usrp.set_rx_freq(uhd.libpyuhd.types.tune_request(center_freq), 0)
     usrp.set_rx_gain(gain, 0)
     usrp.set_rx_antenna("A", 0)
 
-    # Set up the streamer and receive buffer
+    # Set up the USRP streamer
     st_args = uhd.usrp.StreamArgs("fc32", "sc16")
-    st_args.channels = [0]
+    st_args.channels = [0] # Hardcoded for LFRX
     metadata = uhd.types.RXMetadata()
     streamer = usrp.get_rx_stream(st_args)
+
+    # Grab 0.1 sec of samples for PRF autodetect
+    nsamp = int(args.rate*10)
+    recv_buffer = np.zeros((1, nsamp), dtype=np.complex64)
+    stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.num_done)
+    stream_cmd.num_samps = nsamp
+    stream_cmd.stream_now = True
+    streamer.issue_stream_cmd(stream_cmd)
+    samps_recvd = streamer.recv(recv_buffer, metadata)
+
+    print(samps_recvd)
+    print(recv_buffer)
+    print(metadata)
+    
+    recv_buffer.tofile("recv.dat")
+    
+    #plt.plot(recv_buffer[::2])
+    #plt.show()
+
+    return 1
+
     recv_buffer = np.zeros((1, 10000), dtype=np.complex64)
 
     # Start rx worker
@@ -220,7 +277,7 @@ def main():
     p.start()
 
     # Start Stream
-    stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.start_cont)
+    #stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.start_cont)
     stream_cmd.stream_now = True
     streamer.issue_stream_cmd(stream_cmd)
 
