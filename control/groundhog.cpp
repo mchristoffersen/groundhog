@@ -28,7 +28,8 @@ namespace po = boost::program_options;
 // Queue for passing data from radio download thread to triggering/stacking thread
 // 4 GB of samples
 //static boost::lockfree::spsc_queue<short, boost::lockfree::capacity<20000000>> queue;
-static TSQueue<short> queue; 
+static TSQueue<short*> freeq;
+static TSQueue<short*> fillq; 
 
 // stop signal
 static bool stop_signal_called = false;
@@ -352,8 +353,11 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
         prf = prf_meas;
     }
 
+    // free rx buffer for prf 
+    free(prf_buff_real);
+
     // set up receive buffer (depends on spt and cpu_format)
-    std::complex<short> rx_buff[spb];
+    //std::complex<short> rx_buff[spb];
 
     // spin up consumer thread
     boost::thread consumer(triggerAndSave, prf, spt, stack, trigger, rate);
@@ -364,7 +368,21 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     rx_stream->issue_stream_cmd(stream_cmd);
 
     size_t count = 0;
+    std::complex<short>* rx_buff;
+
+    // TODO: Malloc a bunch of memory segments before going into the loop
+    // then use two queues to pass references back and forth 
+    // malloc more if necessary in the while loop
+
+    // Malloc a bunch of memory chunks
+    for (size_t i=0; i<2000; i++) {
+        freeq.push((short*)malloc(sizeof(short)*spb));
+    }
+
     while (not stop_signal_called) {
+        // malloc new rx buffer
+        rx_buff = (std::complex<short>*) malloc(sizeof(std::complex<short>)*spb)
+
         // Receive samples
         num_recvd_samps = rx_stream->recv(rx_buff, spb, md, .5);
 
@@ -395,18 +413,18 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
             std::string error = "Receiver error: " + md.strerror();
         }        
 
+        queue.push(rx_buff)
+
         // Push real part to queue
-        for (size_t i = 0; i < num_recvd_samps; i++) {
-            queue.push(rx_buff[i].real());
-        }
+        //for (size_t i = 0; i < num_recvd_samps; i++) {
+        //    queue.push(rx_buff[i].real());
+        //}
     }
 
     // Stop streaming
     uhd::stream_cmd_t stream_cmd_stop(uhd::stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_stream->issue_stream_cmd(stream_cmd_stop);
 
-    // free rx buffer
-    free(prf_buff_real);
     // Interrupt and join
     consumer.interrupt();
     consumer.join();
