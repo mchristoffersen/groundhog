@@ -15,7 +15,7 @@ data = np.fromfile("/home/radar/groundhog/data/tmp_plot.dat", dtype=np.int16)[::
 t = 1e6*np.arange(len(data)) / 20e6
 
 plt.figure(figsize=(16, 8))
-plt.plot((t, data, "k-")
+plt.plot(t, data, "k-")
 plt.xlim(0, t[-1])
 plt.xlabel("Time ($\mu$s)")
 plt.show()

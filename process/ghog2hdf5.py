@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import struct
 import argparse
 import os
@@ -5,6 +7,7 @@ import os
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
+import glob
 
 
 def cli():
@@ -85,26 +88,36 @@ def parseTraces(data, spt, file):
 
 
 def buildH5(header, rx, times, file):
-    outfile = os.path.dirname(file) + "/" + times[0].replace(":", "-") + ".h5"
-    print("Saving ", outfile)
+    try:
+        fname = os.path.basename(file).replace(".dat", "")
+        outfile = os.path.dirname(file) + "/" + times[0].replace(":", "-") + "_" + fname + ".h5"
+        print("Saving ", outfile)
 
-    fd = h5py.File(outfile, "w")
+        fd = h5py.File(outfile, "w")
 
-    raw = fd.create_group("raw")
-    raw.create_dataset("rx", data=rx)
-    raw.create_dataset("time", data=times)
+        raw = fd.create_group("raw")
+        raw.create_dataset("rx", data=rx)
+        raw.create_dataset("time", data=times)
 
-    for k, v in header.items():
-        raw.attrs[k] = v
+        for k, v in header.items():
+            raw.attrs[k] = v
 
-    fd.close()
+        fd.close()
+    except Exception as e:
+        print(e)
+        return -1
 
     return 0
 
 
 def main():
-    args = cli()
-    for file in args.files:
+    #args = cli()
+    #for file in args.files:
+    
+    # Hardcoding data location 
+    data_dir = "/home/radar/groundhog/data/*.dat"
+
+    for file in glob.glob(data_dir):
         print("Converting " + file)
         try:
             fd = open(file, "rb")
@@ -116,24 +129,24 @@ def main():
         fd.close()
 
         if len(data) < 46:
-            print("Incomplete file, only partial header present")
-            return 1
+            print("Incomplete file, only partial header present\n")
+            continue
 
         header = parseHeader(data, file)
 
         if header == -1:
-            print("Failed to parse file header")
-            return 1
+            print("Failed to parse file header\n")
+            continue
 
         rx, times = parseTraces(data[46:], header["spt"], file)
 
         if times == -1:
-            print("Failed to parse file data segment")
-            return 1
+            print("Failed to parse file data segment\n")
+            continue
 
-        if buildH5(header, rx, times, file) == -1:
-            print("Faild to build HDF5")
-            return 1
+        if (buildH5(header, rx, times, file) == -1):
+            print("Faild to build HDF5\n")
+            continue
 
         print()
 

@@ -495,7 +495,8 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     std::cout << "Sampling frequency: " << rate
     	<< std::endl << "Samples per trace: " << spt
     	<< std::endl << "Pre-trigger samples: " << pretrig
-    	<< std::endl << "Stacking: " << stack << std::endl;
+    	<< std::endl << "Stacking: " << stack
+    	<< std::endl << "Trigger amplitude: " << trigger << std::endl;
     	
     // spin up consumer thread
     boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack, trigger, rate, file);
