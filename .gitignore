@@ -1,0 +1,5 @@
+# Data files from radar
+data/
+
+# Compiled radar binary
+control/src/radar

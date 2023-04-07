@@ -33,7 +33,7 @@ static bool stop_signal_called = false;
 
 // Define the function to be called when ctrl-c (SIGINT) is sent to process
 void sigint_handler(int signum) {
-   std::cout << "Stopping" << std::endl;
+   std::cout << "\nStopping" << std::endl;
    stop_signal_called = true;
 }
 
@@ -50,7 +50,7 @@ size_t ampTriggerSingle(std::complex<short>* buff, size_t buff_len, short trigge
 
     // Loop over buffer and do triggering
     for (size_t i = 0; i < buff_len; i++) {
-        if(buff[i].real() > trigger) {
+        if(std::abs(buff[i].real()) > trigger) {
             return i;
         }
     }
@@ -58,13 +58,12 @@ size_t ampTriggerSingle(std::complex<short>* buff, size_t buff_len, short trigge
 }
 
 // Trigger and save samples
-int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t stack, short trigger, double fs) {
+int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t stack, short trigger, double fs, std::string file) {
     // Make filename
-    std::string filename = "test.dat";
-    std::ofstream file;
-    file.open(filename, std::ios::out | std::ios::binary);
+    std::ofstream fd;
+    fd.open(file, std::ios::out | std::ios::binary);
     int magic0 = 0xD0D0BEEF;
-    file.write((char*) &magic0, 4);
+    fd.write((char*) &magic0, 4);
     
     // Write header
     uint64_t spt_file = uint64_t(spt);
@@ -72,14 +71,14 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t s
     uint64_t prf_file = uint64_t(prf);
     uint64_t stack_file = uint64_t(stack);
     
-    file.write((char*) &spt_file, sizeof(uint64_t));
-    file.write((char*) &pretrig_file, sizeof(uint64_t));
-    file.write((char*) &prf_file, sizeof(uint64_t));
-    file.write((char*) &stack_file, sizeof(uint64_t));
-    file.write((char*) &trigger, sizeof(short));    
-    file.write((char*) &fs, sizeof(double));            
+    fd.write((char*) &spt_file, sizeof(uint64_t));
+    fd.write((char*) &pretrig_file, sizeof(uint64_t));
+    fd.write((char*) &prf_file, sizeof(uint64_t));
+    fd.write((char*) &stack_file, sizeof(uint64_t));
+    fd.write((char*) &trigger, sizeof(short));    
+    fd.write((char*) &fs, sizeof(double));            
     int magic1 = 0xFEEDFACE;
-    file.write((char*) &magic1, 4);
+    fd.write((char*) &magic1, 4);
     
     // Buffer and for time string
     char tmstr[200];
@@ -110,24 +109,26 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t s
     bool trig = false;
     size_t trigloc = 0;
     size_t sample_offset;
+    size_t ntrace = 0;
+    
+    // Print file name
+    std::cout << file << ":" << std::endl;
     while (not trig) {
         trigloc = ampTriggerSingle(cur_buff, spb, trigger);
         
         if (trigloc == spb) { // if no trigger detected
-            freeq.push(prv_buff);
-            prv_buff = cur_buff;
-            cur_buff = nxt_buff;
-            
             // Check for death
             while(fullq.empty()) {
                 // See if thread has been interrupted (and sleep for a bit if not)
                 try {
-                    boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
                 } catch(boost::thread_interrupted&) {
                     goto CLOSE;
                 }
             }
-            
+            freeq.push(prv_buff);
+            prv_buff = cur_buff;
+            cur_buff = nxt_buff;
             nxt_buff = fullq.pop();
             continue;
         }
@@ -183,72 +184,68 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t s
 
         // Save a trace
         if(stacktrack == stack) {
-            std::cout << "Saving trace!" << std::endl;
             // save timestamp
             time_t now = std::time(NULL);
             struct tm *tmp_now = std::localtime(&now);
             std::strftime(tmstr, sizeof(tmstr), format, tmp_now);
-            std::cout << tmstr << std::endl;
-            file.write(tmstr, std::strlen(tmstr));
+            fd.write(tmstr, std::strlen(tmstr));
             
             // save trace
-            file.write((char*)trace, spt*sizeof(int64_t));
+            fd.write((char*)trace, spt*sizeof(int64_t));
             // reset trace
             for (size_t i=0; i<spt; i++) {
                 trace[i] = 0;
             }
             stacktrack = 0;  // reset counter
+            ntrace++;
+            // Print status message to screen
+            std::cout << "  " << tmstr << " -- "
+                << "Traces: " << ntrace
+                << "    Full Buff: " << fullq.size() 
+                << "    Free Buff: " << freeq.size()
+                << "        \r" << std::flush;
         }
         
         // Get next trigger
         // Skip frames
         //std::cout << "Skipping frames: " << std::floor((trigloc+skipsamp)/spb) << std::endl;
         for (size_t i=0; i<std::floor((trigloc+skipsamp)/spb); i++) {
-            freeq.push(prv_buff);
-            prv_buff = cur_buff;
-            cur_buff = nxt_buff;
-            
             // Check if it is time to die
             while(fullq.empty()) {
                 // See if thread has been interrupted (and sleep for a bit if not)
                 try {
-                    boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
                 } catch(boost::thread_interrupted&) {
                     goto CLOSE;
                 }
             }
-            
+            freeq.push(prv_buff);
+            prv_buff = cur_buff;
+            cur_buff = nxt_buff;
             nxt_buff = fullq.pop();
                     
         }
         
         // Look for trigger in remaining samples of current frame
         sample_offset = ((trigloc+skipsamp)%spb);
-        //std::cout << "Looking for trigger" << std::endl;
-        //std::cout << "Offset: " << sample_offset << std::endl;
         trigloc = ampTriggerSingle(cur_buff + sample_offset, spb - sample_offset, trigger);
-        //std::cout << "Origial trig location: " << trigloc << std::endl;
         trigloc = trigloc + sample_offset;
-        //std::cout << "Adjusted trig location: " << trigloc << std::endl;
         
         if(trigloc == spb) { // if it is not present
             trig = false;
             do {
-
-                freeq.push(prv_buff);
-                prv_buff = cur_buff;
-                cur_buff = nxt_buff;
-                
                 // Check if dead
                 while(fullq.empty()) {
                     // See if thread has been interrupted (and sleep for a bit if not)
                     try {
-                        boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
                     } catch(boost::thread_interrupted&) {
                         goto CLOSE;
                     }
                 }
-                
+                freeq.push(prv_buff);
+                prv_buff = cur_buff;
+                cur_buff = nxt_buff;
                 nxt_buff = fullq.pop();
                 
                 trigloc = ampTriggerSingle(cur_buff, spb, trigger);
@@ -262,10 +259,11 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t s
         }
     }
     CLOSE:
+    
     // Close out
     int magic2 = 0xDEADDEAD;
-    file.write((char*) &magic2, 4);
-    file.close();
+    fd.write((char*) &magic2, 4);
+    fd.close();
     std::cout << "Consumer dead" << std::endl;
     return 0;
 }
@@ -290,7 +288,7 @@ size_t detect_prf(std::complex<short>* buff, size_t buff_len, short trigger, siz
 
     // Loop over buffer and do triggering
     for (size_t i = 0; i < buff_len; i++) {
-        if(buff[i].real() > trigger) {
+        if(std::abs(buff[i].real()) > trigger) {
             trig_samp[trig_count] = i;
             trig_count += 1;
             i += spt;
@@ -316,9 +314,6 @@ size_t detect_prf(std::complex<short>* buff, size_t buff_len, short trigger, siz
 
     size_t prf = 1.0/dt;
 
-    // Round to nearest thousand - 
-    std::cout << "Rounding PRF to nearest increment of 1000" << std::endl;
-
     if (prf % 1000 < 500) {
         prf = prf - (prf % 1000);
     } else {
@@ -330,13 +325,13 @@ size_t detect_prf(std::complex<short>* buff, size_t buff_len, short trigger, siz
 
 int UHD_SAFE_MAIN(int argc, char* argv[]) {
     // set thread priority (high)
-    uhd::set_thread_priority_safe();
+    uhd::set_thread_priority_safe(1, true);
 
     // signal handler
     std::signal(SIGINT, &sigint_handler);
 
     // variables to be set by po
-    std::string outdir, args, subdev;
+    std::string file, args, subdev;
     size_t stack, spt, prf, pretrig;
     short trigger;
     double rate;
@@ -344,20 +339,31 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "help message")
+        ("file", po::value<std::string>(&file)->required(), "(required) output file name")
         ("rate", po::value<double>(&rate)->default_value(20e6, "20 MHz"), "set sampling rate (Hz)")
         ("stack", po::value<size_t>(&stack)->default_value(5000, "5k"), "set trace stacking")
         ("spt", po::value<size_t>(&spt)->default_value(512), "set samples per trace")
         ("pretrig", po::value<size_t>(&pretrig)->default_value(8), "set pre-trigger samples")
         ("trigger", po::value<short>(&trigger)->default_value(50, "50"), "set trigger threshold (counts)")
         ("prf", po::value<size_t>(&prf)->default_value(0, "auto-detect"), "pulse repetition frequency")
-        ("outdir", po::value<std::string>(&outdir)->default_value("./"), "output directory")
         ("args", po::value<std::string>(&args)->default_value("addr=192.168.10.2,type=usrp2"), "(ADVANCED) multi uhd device address args")
         ("subdev", po::value<std::string>(&subdev)->default_value("A:A"), "(ADVANCED) subdevice specification")
     ; 
 
     // Handle CLI
-    po::variables_map vm;
+    po::variables_map vm; 
     po::store(po::parse_command_line(argc, argv, desc), vm);
+    
+    // print the help message
+    if (vm.count("help")) {
+        std::cout << "Groundhog Radar Receiver " << desc << std::endl;
+        std::cout << std::endl
+                  << "This application records impulse radar data "
+                     "to a file.\n"
+                  << std::endl;
+        return ~0;
+    }
+    
     po::notify(vm);
 
     // Whether to print overflow message
@@ -381,16 +387,6 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     // Hardcoding cpu and wire formats
     std::string cpu_format = "sc16";
     std::string wire_format = "sc16";
-
-    // print the help message
-    if (vm.count("help")) {
-        std::cout << "Groundhog Radar Receiver " << desc << std::endl;
-        std::cout << std::endl
-                  << "This application records impulse radar data "
-                     "to a file.\n"
-                  << std::endl;
-        return ~0;
-    }
 
     // create a usrp device
     std::cout << std::endl;
@@ -488,15 +484,21 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     std::cout << boost::format("Detected PRF: %d Hz") % prf_meas << std::endl;
     std::cout << boost::format("Declared PRF: %d Hz") % prf << std::endl;
     if(prf == 0) {
-        std::cout << "Using detected PRF." << std::endl;
+        std::cout << "Using detected PRF.\n" << std::endl;
         prf = prf_meas;
     }
 
     // free rx buffer for prf 
     free(prf_buff);
 
+    // Print config
+    std::cout << "Sampling frequency: " << rate
+    	<< std::endl << "Samples per trace: " << spt
+    	<< std::endl << "Pre-trigger samples: " << pretrig
+    	<< std::endl << "Stacking: " << stack << std::endl;
+    	
     // spin up consumer thread
-    boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack, trigger, rate);
+    boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack, trigger, rate, file);
 
     // Malloc a bunch of memory chunks for rx
     for (size_t i=0; i<2000; i++) {
@@ -529,7 +531,8 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
             std::cout << "Bad number of recv samples, skipping queue push" << std::endl
                       << boost::format("Recieved: %zu") % num_recvd_samps << std::endl
                       << boost::format("Requested: %zu") % spb << std::endl;
-            //break;
+            freeq.push(rx_buff);
+            continue;
         }
 
         // Check for other issues
@@ -546,6 +549,7 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
         }
         if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE) {
             std::string error = "Receiver error: " + md.strerror();
+            break;
         }        
 
         // Put full buffer in the full queue
