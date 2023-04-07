@@ -3,7 +3,7 @@
 // Real-mode streaming and triggering from Ettus N210
 
 #include <iostream>
-#include <vector>
+#include <fstream>
 #include <csignal>
 #include <cstdlib>
 
@@ -12,8 +12,7 @@
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
-//#include <boost/lockfree/spsc_queue.hpp>
-#include <boost/circular_buffer.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include <uhd/convert.hpp>
 #include <uhd/exception.hpp>
@@ -26,86 +25,19 @@
 namespace po = boost::program_options;
 
 // Queue for passing data from radio download thread to triggering/stacking thread
-// 4 GB of samples
-//static boost::lockfree::spsc_queue<short, boost::lockfree::capacity<20000000>> queue;
-static TSQueue<short*> freeq;
-static TSQueue<short*> fillq; 
+static TSQueue<std::complex<short>*> freeq;
+static TSQueue<std::complex<short>*> fullq; 
 
 // stop signal
 static bool stop_signal_called = false;
 
 // Define the function to be called when ctrl-c (SIGINT) is sent to process
 void sigint_handler(int signum) {
-   std::cout << "Caught signal " << signum << std::endl;
+   std::cout << "Stopping" << std::endl;
    stop_signal_called = true;
 }
 
-size_t ampTriggerSingleCB(boost::circular_buffer<short> cb, short trigger){
-     /* Return location of first trigger in a circular buffer
-     *
-     * Inputs:
-     *  buff - buffer of samples
-     *  trigger - amplitude trigger threshold
-     *
-     * Returns:
-     *  trigger index
-    */
-
-    // Loop over buffer and do triggering
-    for (size_t i = 0; i < cb.size(); i++) {
-        if(cb[i] > trigger) {
-            return i;
-        }
-    }
-    return cb.size();
-}
-
-// Trigger and save samples
-int triggerAndSave(size_t prf, size_t spt, size_t stack, short trigger, double fs) {
-    //return 0;
-
-    size_t cb_capacity = size_t(2*(1/prf)*fs);
-    // Initialize ring buffer
-    boost::circular_buffer<short> cb(cb_capacity);
-
-    // interruption flag
-    bool interrupt = false;
-
-    // Initially fill ring buffer
-    for (int i=0; i<cb_capacity; i++) {
-        cb.push_back(queue.pop());
-    }
-
-    // Triggering loop
-    size_t trig_samp = 0;
-    while(not interrupt) {
-        // trigger
-        trig_samp = ampTriggerSingleCB(cb, trigger);
-
-        // do stuff... stack samples, get system time when saving trace, etc
-        //std::cout << boost::format("Trig samp: %zu") % trig_samp << std::endl;
-
-        // push back new samples
-        // Everything through current trace + 90% of the way to next one
-        // Initially fill ring buffer
-        for (int i=0; i<(trig_samp + spt + size_t(.9*(1/prf)*fs)); i++) {
-            cb.push_back(queue.pop());
-        } 
-
-        // See if thread has been interrupted
-        try {
-            boost::this_thread::interruption_point();
-        } catch(boost::thread_interrupted) {
-            interrupt = true;
-        }     
-    }
-
-    // Close out
-
-    return 0;
-}
-
-size_t ampTriggerSingle(short* buff, size_t buff_len, short trigger){
+size_t ampTriggerSingle(std::complex<short>* buff, size_t buff_len, short trigger){
      /* Return location of first trigger in an array
      *
      * Inputs:
@@ -118,14 +50,227 @@ size_t ampTriggerSingle(short* buff, size_t buff_len, short trigger){
 
     // Loop over buffer and do triggering
     for (size_t i = 0; i < buff_len; i++) {
-        if(buff[i] > trigger) {
+        if(buff[i].real() > trigger) {
             return i;
         }
     }
     return buff_len;
 }
 
-size_t detect_prf(short* buff, size_t buff_len, short trigger, size_t spt, double rate) {
+// Trigger and save samples
+int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb, size_t stack, short trigger, double fs) {
+    // Make filename
+    std::string filename = "test.dat";
+    std::ofstream file;
+    file.open(filename, std::ios::out | std::ios::binary);
+    int magic0 = 0xD0D0BEEF;
+    file.write((char*) &magic0, 4);
+    
+    // Write header
+    uint64_t spt_file = uint64_t(spt);
+    uint64_t pretrig_file = uint64_t(pretrig);
+    uint64_t prf_file = uint64_t(prf);
+    uint64_t stack_file = uint64_t(stack);
+    
+    file.write((char*) &spt_file, sizeof(uint64_t));
+    file.write((char*) &pretrig_file, sizeof(uint64_t));
+    file.write((char*) &prf_file, sizeof(uint64_t));
+    file.write((char*) &stack_file, sizeof(uint64_t));
+    file.write((char*) &trigger, sizeof(short));    
+    file.write((char*) &fs, sizeof(double));            
+    int magic1 = 0xFEEDFACE;
+    file.write((char*) &magic1, 4);
+    
+    // Buffer and for time string
+    char tmstr[200];
+    char* format = "%FT%T";
+    
+    // Trace stacking buffer (using float for this)
+    int64_t* trace = (int64_t*)calloc(spt, sizeof(int64_t));
+    
+    // Stacking tracker
+    size_t stacktrack = 0;
+    
+    // Number of samples to skip after trigger
+    // 95% of the way to the next trigger
+    size_t skipsamp = size_t(0.95*(fs/prf));
+    size_t skipped = 0; // skipped sample counter for loop
+    
+    // buffer pointers for previous, current, next frame
+    std::complex<short>* prv_buff;
+    std::complex<short>* cur_buff;
+    std::complex<short>* nxt_buff;
+
+    // Get first three frames
+    prv_buff = fullq.pop();
+    cur_buff = fullq.pop();
+    nxt_buff = fullq.pop();  
+    
+    // Detect first trigger, iterate through frames until one is found
+    bool trig = false;
+    size_t trigloc = 0;
+    size_t sample_offset;
+    while (not trig) {
+        trigloc = ampTriggerSingle(cur_buff, spb, trigger);
+        
+        if (trigloc == spb) { // if no trigger detected
+            freeq.push(prv_buff);
+            prv_buff = cur_buff;
+            cur_buff = nxt_buff;
+            
+            // Check for death
+            while(fullq.empty()) {
+                // See if thread has been interrupted (and sleep for a bit if not)
+                try {
+                    boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                } catch(boost::thread_interrupted&) {
+                    goto CLOSE;
+                }
+            }
+            
+            nxt_buff = fullq.pop();
+            continue;
+        }
+        
+        trig = true;
+    }
+
+    while (true) {
+        // Stack (or stack then save if stacked enough)
+        // Get pretrigger samples (check if need to use prv_buff)
+        
+        if(trigloc - pretrig < 0) {
+            // If some pre-trigger samples are in previous buffer
+            // look-behind
+            for (size_t i=0; i<(pretrig-trigloc); i++) {
+                trace[i] = trace[i] + prv_buff[spb - (pretrig-trigloc) + i].real();
+            }
+            
+            // current buffer
+            for (size_t i=0; i<trigloc; i++) {
+                trace[i + (pretrig-trigloc)] = trace[i + (pretrig-trigloc)] + cur_buff[i].real();
+            }
+            
+        } else {
+            // If pre-trigger samples entirely within current buffer
+            for (size_t i=0; i<pretrig; i++) {
+                trace[i] = trace[i] + cur_buff[trigloc - pretrig + i].real();
+            }
+        }
+        
+        
+        // Get trigger and post trigger samples (check if need to use nxt_buff)
+        if(trigloc + (spt - pretrig) >= spb) {
+            //If some post-trigger samples are in next buffer
+            // current buffer
+            for (size_t i=0; i<(spb - trigloc); i++) {
+                trace[i + pretrig] = trace[i + pretrig] + cur_buff[i + trigloc].real();   
+            }
+            
+            // look ahead
+            for (size_t i=0; i<(spt - pretrig - (spb - trigloc)); i++) {
+                trace[i + pretrig + (spb - trigloc)] = trace[i + pretrig + (spb - trigloc)] + nxt_buff[i].real();
+            }
+        } else {
+            // Add post-trigger samples to trace
+            for (size_t i=0; i<(spt-pretrig); i++) {
+                trace[i + pretrig] = trace[i + pretrig] + cur_buff[i + trigloc].real();
+            }
+        }
+        
+        // +1 trace
+        stacktrack++;
+
+        // Save a trace
+        if(stacktrack == stack) {
+            std::cout << "Saving trace!" << std::endl;
+            // save timestamp
+            time_t now = std::time(NULL);
+            struct tm *tmp_now = std::localtime(&now);
+            std::strftime(tmstr, sizeof(tmstr), format, tmp_now);
+            std::cout << tmstr << std::endl;
+            file.write(tmstr, std::strlen(tmstr));
+            
+            // save trace
+            file.write((char*)trace, spt*sizeof(int64_t));
+            // reset trace
+            for (size_t i=0; i<spt; i++) {
+                trace[i] = 0;
+            }
+            stacktrack = 0;  // reset counter
+        }
+        
+        // Get next trigger
+        // Skip frames
+        //std::cout << "Skipping frames: " << std::floor((trigloc+skipsamp)/spb) << std::endl;
+        for (size_t i=0; i<std::floor((trigloc+skipsamp)/spb); i++) {
+            freeq.push(prv_buff);
+            prv_buff = cur_buff;
+            cur_buff = nxt_buff;
+            
+            // Check if it is time to die
+            while(fullq.empty()) {
+                // See if thread has been interrupted (and sleep for a bit if not)
+                try {
+                    boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                } catch(boost::thread_interrupted&) {
+                    goto CLOSE;
+                }
+            }
+            
+            nxt_buff = fullq.pop();
+                    
+        }
+        
+        // Look for trigger in remaining samples of current frame
+        sample_offset = ((trigloc+skipsamp)%spb);
+        //std::cout << "Looking for trigger" << std::endl;
+        //std::cout << "Offset: " << sample_offset << std::endl;
+        trigloc = ampTriggerSingle(cur_buff + sample_offset, spb - sample_offset, trigger);
+        //std::cout << "Origial trig location: " << trigloc << std::endl;
+        trigloc = trigloc + sample_offset;
+        //std::cout << "Adjusted trig location: " << trigloc << std::endl;
+        
+        if(trigloc == spb) { // if it is not present
+            trig = false;
+            do {
+
+                freeq.push(prv_buff);
+                prv_buff = cur_buff;
+                cur_buff = nxt_buff;
+                
+                // Check if dead
+                while(fullq.empty()) {
+                    // See if thread has been interrupted (and sleep for a bit if not)
+                    try {
+                        boost::this_thread::sleep(boost::posix_time::microseconds(size_t(1e6*(spb/fs)/2)));;
+                    } catch(boost::thread_interrupted&) {
+                        goto CLOSE;
+                    }
+                }
+                
+                nxt_buff = fullq.pop();
+                
+                trigloc = ampTriggerSingle(cur_buff, spb, trigger);
+                
+                if(trigloc == spb) {
+                    continue;  
+                }
+                
+                trig = true;
+            } while (not trig);
+        }
+    }
+    CLOSE:
+    // Close out
+    int magic2 = 0xDEADDEAD;
+    file.write((char*) &magic2, 4);
+    file.close();
+    std::cout << "Consumer dead" << std::endl;
+    return 0;
+}
+
+size_t detect_prf(std::complex<short>* buff, size_t buff_len, short trigger, size_t spt, double rate) {
     /* Function to auto-detect the pulse repetition frequency. This is done by
      * detecting several triggers in an array of continious samples and calculating
      * the mean separation between the triggers.
@@ -145,7 +290,7 @@ size_t detect_prf(short* buff, size_t buff_len, short trigger, size_t spt, doubl
 
     // Loop over buffer and do triggering
     for (size_t i = 0; i < buff_len; i++) {
-        if(buff[i] > trigger) {
+        if(buff[i].real() > trigger) {
             trig_samp[trig_count] = i;
             trig_count += 1;
             i += spt;
@@ -192,7 +337,7 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
 
     // variables to be set by po
     std::string outdir, args, subdev;
-    size_t stack, spt, prf;
+    size_t stack, spt, prf, pretrig;
     short trigger;
     double rate;
 
@@ -202,7 +347,8 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
         ("rate", po::value<double>(&rate)->default_value(20e6, "20 MHz"), "set sampling rate (Hz)")
         ("stack", po::value<size_t>(&stack)->default_value(5000, "5k"), "set trace stacking")
         ("spt", po::value<size_t>(&spt)->default_value(512), "set samples per trace")
-        ("trigger", po::value<short>(&trigger)->default_value(25, "25"), "set trigger threshold (counts)")
+        ("pretrig", po::value<size_t>(&pretrig)->default_value(8), "set pre-trigger samples")
+        ("trigger", po::value<short>(&trigger)->default_value(50, "50"), "set trigger threshold (counts)")
         ("prf", po::value<size_t>(&prf)->default_value(0, "auto-detect"), "pulse repetition frequency")
         ("outdir", po::value<std::string>(&outdir)->default_value("./"), "output directory")
         ("args", po::value<std::string>(&args)->default_value("addr=192.168.10.2,type=usrp2"), "(ADVANCED) multi uhd device address args")
@@ -312,7 +458,7 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     prf_stream_cmd.stream_now = true;
 
     // Complex buffer for PRF detection
-    std::complex<short> prf_buff[prf_stream_cmd.num_samps];
+    std::complex<short>* prf_buff = (std::complex<short>*)malloc(sizeof(std::complex<short>*)*prf_stream_cmd.num_samps);
 
     // Stream samples
     rx_stream->issue_stream_cmd(prf_stream_cmd);
@@ -325,21 +471,14 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
         return ~0;
     }
 
-    // Extract real values (imag should be zero since center freq is zero)
-    short* prf_buff_real = (short*)malloc(sizeof(short)*prf_stream_cmd.num_samps);
-
-    for (size_t i = 0; i < prf_stream_cmd.num_samps; i++) {
-        prf_buff_real[i] = prf_buff[i].real();
-    }
-
     // Check for at least one trigger event
-    if(ampTriggerSingle(prf_buff_real, prf_stream_cmd.num_samps, trigger) == prf_stream_cmd.num_samps) {
+    if(ampTriggerSingle(prf_buff, prf_stream_cmd.num_samps, trigger) == prf_stream_cmd.num_samps) {
         std::cout << "Failed to trigger!" << std::endl;
         return ~0;
     }
 
     // Detect PRF and compare to declared one if applicable
-    size_t prf_meas = detect_prf(prf_buff_real, prf_stream_cmd.num_samps, trigger, spt, rate);
+    size_t prf_meas = detect_prf(prf_buff, prf_stream_cmd.num_samps, trigger, spt, rate);
     if (prf_meas == 0) {
         std::cout << "Failed to measure PRF" << std::endl;
         if(prf == 0) {
@@ -354,40 +493,36 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
     }
 
     // free rx buffer for prf 
-    free(prf_buff_real);
-
-    // set up receive buffer (depends on spt and cpu_format)
-    //std::complex<short> rx_buff[spb];
+    free(prf_buff);
 
     // spin up consumer thread
-    boost::thread consumer(triggerAndSave, prf, spt, stack, trigger, rate);
+    boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack, trigger, rate);
+
+    // Malloc a bunch of memory chunks for rx
+    for (size_t i=0; i<2000; i++) {
+        freeq.push((std::complex<short>*)malloc(sizeof(std::complex<short>)*spb));
+    }
+    
+    // rx buffer pointer
+    std::complex<short>* rx_buff;
 
     // Stream samples continuiously and send to consumer thread
     uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS);
     stream_cmd.stream_now = true;   
     rx_stream->issue_stream_cmd(stream_cmd);
-
-    size_t count = 0;
-    std::complex<short>* rx_buff;
-
-    // TODO: Malloc a bunch of memory segments before going into the loop
-    // then use two queues to pass references back and forth 
-    // malloc more if necessary in the while loop
-
-    // Malloc a bunch of memory chunks
-    for (size_t i=0; i<2000; i++) {
-        freeq.push((short*)malloc(sizeof(short)*spb));
-    }
-
+	
     while (not stop_signal_called) {
-        // malloc new rx buffer
-        rx_buff = (std::complex<short>*) malloc(sizeof(std::complex<short>)*spb)
-
+	    // Check if there is an available memory chunk, allocate one if not
+	    if (freeq.empty()) {
+	        std::cout << "Warning: empty free queue" << std::endl;
+	        freeq.push((std::complex<short>*)malloc(sizeof(std::complex<short>)*spb));
+	    }
+	    
+	    rx_buff = freeq.pop();
+	    
         // Receive samples
-        num_recvd_samps = rx_stream->recv(rx_buff, spb, md, .5);
+        num_recvd_samps = rx_stream->recv(rx_buff, spb, md);
 
-        //std::cout << boost::format("Received samples %d") % count << std::endl;
-        //count++;
 
         // Check that right number of samps were received
         if(num_recvd_samps != spb) {
@@ -413,21 +548,28 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
             std::string error = "Receiver error: " + md.strerror();
         }        
 
-        queue.push(rx_buff)
+        // Put full buffer in the full queue
+        fullq.push(rx_buff);
 
-        // Push real part to queue
-        //for (size_t i = 0; i < num_recvd_samps; i++) {
-        //    queue.push(rx_buff[i].real());
-        //}
     }
 
     // Stop streaming
     uhd::stream_cmd_t stream_cmd_stop(uhd::stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_stream->issue_stream_cmd(stream_cmd_stop);
 
+    std::cout << "Streaming stopped" << std::endl;
+    
     // Interrupt and join
     consumer.interrupt();
     consumer.join();
+        
+    // free all memory chunks
+    for (size_t i=0; i<freeq.size(); i++) {
+        free(freeq.pop());
+    }
+    for (size_t i=0; i<fullq.size(); i++) {
+        free(fullq.pop());
+    }
 
     std::cout << "Goodbye" << std::endl;
 

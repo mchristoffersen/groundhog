@@ -19,8 +19,7 @@ private:
   
 public:
     // Pushes an element to the queue
-    void push(T item)
-    {
+    void push(T item) {
   
         // Acquire lock
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -34,8 +33,7 @@ public:
     }
   
     // Pops an element off the queue
-    T pop()
-    {
+    T pop() {
   
         // acquire lock
         std::unique_lock<std::mutex> lock(m_mutex);
@@ -50,5 +48,21 @@ public:
   
         // return item
         return item;
+    }
+    
+    // Returns size of queue
+    size_t size() {
+        // acquire lock
+        std::unique_lock<std::mutex> lock(m_mutex);
+        
+        return m_queue.size();
+    }
+    
+    // Returns whether queue is empty
+    bool empty() {
+        // acquire lock
+        std::unique_lock<std::mutex> lock(m_mutex);
+        
+        return m_queue.empty();
     }
 };

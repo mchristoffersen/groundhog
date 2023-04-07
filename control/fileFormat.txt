@@ -1,0 +1,26 @@
+Groundhog digitizer file format
+
+50 byte header block followed by repeating traces, ended with magic bytes that
+denote sucessful closure of the file. If the bytes are absent then the digitizer
+program was interrupted. This does not necessairly mean that the data in the file
+is bad, just that it is not complete.
+
+Header:
+Bytes:  Data
+00-04: 0xD0D0BEEF
+04-12: Samples per trace (int64)
+12-20: Pre-trigger samples (int64)
+20-28: Pulse repetition frequency (int64)
+28-36: Stacking (int64)
+36-38: Trigger threshold (int16)
+38-46: Sampling frequency (float64)
+46-50: 0xFEEDFACE
+
+Trace:
+Bytes: Data
+00-19: ASCII time string (ex: 2023-04-05T11:29:49)
+19-??: Trace data (int64). Length of segment is 8*(samples per trace)
+
+End of file:
+Bytes: Data
+??-??: 0xDEADDEAD
