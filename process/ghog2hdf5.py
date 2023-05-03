@@ -3,10 +3,10 @@
 import struct
 import argparse
 import os
+import time
 
 import numpy as np
 import h5py
-import matplotlib.pyplot as plt
 import glob
 
 
@@ -16,10 +16,10 @@ def cli():
         description="Convert Groundhog digitizer files to HDF5"
     )
     parser.add_argument(
-        "files",
+        "--dir",
         type=str,
-        nargs="+",
-        help="Groundhog digitizer file(s) to convert to HDF5",
+        help="Directory of digitizer file(s) to convert to HDF5",
+        default="/home/radar/groundhog/data",
     )
     args = parser.parse_args()
     return args
@@ -90,13 +90,20 @@ def parseTraces(data, spt, file):
 def buildH5(header, rx, times, file):
     try:
         fname = os.path.basename(file).replace(".dat", "")
-        outfile = os.path.dirname(file) + "/" + times[0].replace(":", "-") + "_" + fname + ".h5"
+        outfile = (
+            os.path.dirname(file)
+            + "/"
+            + times[0].replace(":", "-")
+            + "_"
+            + fname
+            + ".h5"
+        )
         print("Saving ", outfile)
 
         fd = h5py.File(outfile, "w")
 
         raw = fd.create_group("raw")
-        raw.create_dataset("rx", data=rx)
+        raw.create_dataset("rx0", data=rx)
         raw.create_dataset("time", data=times)
 
         for k, v in header.items():
@@ -110,45 +117,116 @@ def buildH5(header, rx, times, file):
     return 0
 
 
-def main():
-    #args = cli()
-    #for file in args.files:
-    
-    # Hardcoding data location 
-    data_dir = "/home/radar/groundhog/data/*.dat"
+def DDMtoDD(ddm):
+    d = np.float64(ddm[:-7])
+    m = np.float64(ddm[-7:]) / 60.0
+    return d + m
 
-    for file in glob.glob(data_dir):
-        print("Converting " + file)
+
+def parseGPS(file):
+    try:
+        nmeas = open(file, mode="r").read().splitlines()
+    except Exception as e:
+        print(e)
+        return -1, -1
+
+    fixs = []
+    systs = []
+    for i, nmea in enumerate(nmeas):
+        if "class" in nmea:
+            # skip json info strings
+            continue
+
+        syst, fix = nmea.split("$", maxsplit=1)
+
+        if "GPGGA" in fix:
+            fixs.append(fix)
+            systs.append(syst)
+
+    gps = np.zeros((len(fixs), 4))  # lon, lat, hgt, time
+    for i, fix in enumerate(fixs):
+        fix = fix.split(",")
+        gps[i, 3] = np.float64(fix[1])
+        gps[i, 1] = DDMtoDD(fix[2])
+        gps[i, 0] = DDMtoDD(fix[4])
+        gps[i, 2] = fix[9]
+
+        if fix[3] == "S":
+            gps[i, 1] *= -1
+
+        if fix[5] == "W":
+            gps[i, 0] *= -1
+
+    return systs, gps
+
+
+def interpFix(timesGps, timesFile, fix):
+    timesGps = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S:")) for t in timesGps])
+    timesFile = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S")) for t in timesFile])
+    # Interpolate repeated file times
+    _, uidx = np.unique(timesFile, return_index=True)
+    idx = np.arange(len(timesFile))
+    timesFile = np.interp(idx, uidx, timesFile[uidx])
+    print(np.diff(timesFile))
+
+
+def main():
+    args = cli()
+    files = glob.glob(args.dir + "/*.dat")
+
+    if len(files) == 0:
+        print("No data files found, exiting")
+
+    for file in files:
         try:
-            fd = open(file, "rb")
+            print("Converting " + file)
+            try:
+                fd = open(file, "rb")
+            except Exception as e:
+                print(e)
+                continue
+
+            data = fd.read()
+            fd.close()
+
+            if len(data) < 46:
+                print(
+                    "Incomplete file, only partial header present -- skipping conversion\n"
+                )
+                continue
+
+            header = parseHeader(data, file)
+
+            if header == -1:
+                print("Failed to parse file header\n")
+                continue
+
+            rx, timesFile = parseTraces(data[46:], header["spt"], file)
+
+            if timesFile == -1:
+                print("Failed to parse file data segment\n")
+                continue
+
+            gpsFile = file.replace(".dat", ".txt")
+            timesGps, fix = parseGPS(gpsFile)
+
+            if timesGps == -1:
+                print(
+                    "No GPS file found or failed to parse GPS file -- skipping conversion\n"
+                )
+                continue
+
+            gps = interpFix(timesGps, timesFile, fix)
+
+            if buildH5(header, rx, times, file) == -1:
+                print("Faild to build HDF5\n")
+                continue
+
+            print()
+
         except Exception as e:
             print(e)
-            continue
-
-        data = fd.read()
-        fd.close()
-
-        if len(data) < 46:
-            print("Incomplete file, only partial header present\n")
-            continue
-
-        header = parseHeader(data, file)
-
-        if header == -1:
-            print("Failed to parse file header\n")
-            continue
-
-        rx, times = parseTraces(data[46:], header["spt"], file)
-
-        if times == -1:
-            print("Failed to parse file data segment\n")
-            continue
-
-        if (buildH5(header, rx, times, file) == -1):
-            print("Faild to build HDF5\n")
-            continue
-
-        print()
+            print("Unanticipated failure -- skipping conversion\n")
 
     return 0
 
