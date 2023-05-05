@@ -18,7 +18,7 @@ Bytes:  Data
 
 Trace:
 Bytes: Data
-00-19: ASCII time string (ex: 2023-04-05T11:29:49)
+00-26: ISO 8601 extended system time string (ex: 2023-05-04T22:16:50.512647)
 19-??: Trace data (int64). Length of segment is 8*(samples per trace)
 
 End of file:
