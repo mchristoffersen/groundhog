@@ -1,6 +1,6 @@
 CC       = g++
-CMPFLAGS = -g
-BSTFLAGS = -lboost_program_options -lboost_thread -lboost_atomic
+CMPFLAGS = -g -pthread
+BSTFLAGS = -lboost_program_options -lboost_thread -lboost_atomic -lboost_date_time
 UHDFLAGS = -luhd
 OBJFILES = groundhog.o
 TARGET   = ./radar

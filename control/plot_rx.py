@@ -8,16 +8,20 @@ import numpy as np
 
 # Acquire samples
 os.system(
-    "/opt/uhd/host/build/examples/rx_samples_to_file --type short --rate 20e6 --duration 0.1 --file /home/radar/groundhog/data/tmp_plot.dat"
+    "/opt/uhd/host/build/examples/rx_samples_to_file --type short --rate 25e6 --duration 0.1 --file /home/radar/groundhog/data/tmp_plot.dat"
 )
 
 data = np.fromfile("/home/radar/groundhog/data/tmp_plot.dat", dtype=np.int16)[::2]
-t = 1e6*np.arange(len(data)) / 20e6
+data = data[100:]
+
+t = 1e6*np.arange(len(data)) / 25e6
 
 plt.figure(figsize=(16, 8))
 plt.plot(t, data, "k-")
-plt.xlim(0, t[-1])
+plt.xlim(0, 500)
 plt.xlabel("Time ($\mu$s)")
-plt.show()
-
+plt.title("PRESS [ENTER] TO CLOSE")
+plt.draw()
+plt.waitforbuttonpress(0)
+plt.close()
 os.system("rm /home/radar/groundhog/data/tmp_plot.dat")

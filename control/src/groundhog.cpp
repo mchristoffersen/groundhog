@@ -345,7 +345,7 @@ int UHD_SAFE_MAIN(int argc, char* argv[]) {
   desc.add_options()
       ("help", "help message")
       ("file", po::value<std::string>(&file)->required(),"(required) output file name")
-      ("rate", po::value<double>(&rate)->default_value(20e6, "20 MHz"),"set sampling rate (Hz)")
+      ("rate", po::value<double>(&rate)->default_value(25e6, "25 MHz"),"set sampling rate (Hz)")
       ("stack", po::value<size_t>(&stack)->default_value(5000, "5k"),"set trace stacking")
       ("spt", po::value<size_t>(&spt)->default_value(512),"set samples per trace")
       ("pretrig", po::value<size_t>(&pretrig)->default_value(8),"set pre-trigger samples")
