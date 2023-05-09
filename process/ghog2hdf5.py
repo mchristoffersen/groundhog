@@ -4,6 +4,7 @@ import struct
 import argparse
 import os
 import time
+import calendar
 
 import numpy as np
 import h5py
@@ -90,10 +91,12 @@ def parseTraces(data, spt, file):
 def buildH5(header, rx, fix, file):
     try:
         fname = os.path.basename(file).replace(".dat", "")
+        time0 = time.gmtime(fix[0, 3])
+        time0 = time.strftime("%Y-%m-%dT%H-%M-%S", time0)
         outfile = (
             os.path.dirname(file)
             + "/"
-            + fix[0].replace(":", "-")
+            + time0
             + "_"
             + fname
             + ".h5"
@@ -104,7 +107,7 @@ def buildH5(header, rx, fix, file):
 
         raw = fd.create_group("raw")
         raw.create_dataset("rx0", data=rx)
-        raw.create_dataset("time", data=times)
+        raw.create_dataset("time", data=fix)
 
         for k, v in header.items():
             raw.attrs[k] = v
@@ -130,8 +133,10 @@ def parseGPS(file):
         print(e)
         return -1, -1
 
-    fixs = []
-    systs = []
+    gpgga = []
+    gpzda = []
+    tgpgga = []
+    tgpgza = []
     for i, nmea in enumerate(nmeas):
         if "class" in nmea:
             # skip json info strings
@@ -140,32 +145,45 @@ def parseGPS(file):
         syst, fix = nmea.split("$", maxsplit=1)
 
         if "GPGGA" in fix:
-            fixs.append(fix)
-            systs.append(syst)
+            gpgga.append(fix)
+            tgpgga.append(syst)
 
-    gps = np.zeros((len(fixs), 4))  # lon, lat, hgt, time
-    for i, fix in enumerate(fixs):
-        fix = fix.split(",")
-        gps[i, 1] = DDMtoDD(fix[2])
-        gps[i, 0] = DDMtoDD(fix[4])
-        gps[i, 2] = fix[9]
+        if "GPZDA" in fix:
+            gpzda.append(fix)
+            tgpgza.append(syst)
 
-        if fix[3] == "S":
-            gps[i, 1] *= -1
+    if(len(gpgga) != len(gpzda)):
+        print("Number of GPGGA strings != number of GPZDA string, need to handle this")
+        return -1, -1
 
-        if fix[5] == "W":
-            gps[i, 0] *= -1
-            
-        # ADD GPS TIME PARSING (USING GPZDA) AND DEAL WITH THAT
-        # IN INTERPOLATION
+    fix = np.zeros((len(gpgga), 4))  # lon, lat, hgt, utc
+    for i in range(len(gpgga)):
+        gga = gpgga[i].split(",")
+        zda = gpzda[i].split(",")
+        if(gga[1] != zda[1]):
+            print("GPGGA and GPZDA misalignment, need to handle this")
+            return -1, -1
 
-    return systs, gps
+        fix[i, 1] = DDMtoDD(gga[2])
+        fix[i, 0] = DDMtoDD(gga[4])
+        fix[i, 2] = gga[9]
+
+        if gga[3] == "S":
+            fix[i, 1] *= -1
+
+        if gga[5] == "W":
+            fix[i, 0] *= -1
+
+        # Convert UTC time to seconds of day
+        fix[i, 3] = calendar.timegm(time.strptime(zda[4] + zda[3] + zda[2] + zda[1], "%Y%m%d%H%M%S.%f"))
+
+    return tgpgga, fix
 
 
 def interpFix(timesGps, timesFile, fix):
     # Reference everyting to first GPS time
-    timesGps = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f:")) for t in timesGps])
-    timesFile = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S.%f")) for t in timesFile])
+    timesGps = np.array([calendar.timegm(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f:")) for t in timesGps])
+    timesFile = np.array([calendar.timegm(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S.%f")) for t in timesFile])
 
     # Check for suspicious things
     if(timesGps[0] > timesFile[0] or timesGps[-1] < timesFile[-1]):
@@ -176,7 +194,8 @@ def interpFix(timesGps, timesFile, fix):
     hgti = np.interp(timesFile, timesGps, fix[:,2])
     timei = np.interp(timesFile, timesGps, fix[:,3])
 
-    return np.dstack((loni, lati, hgti, timei))
+    return np.stack((loni, lati, hgti, timei)).T
+
 
 def main():
     args = cli()
@@ -225,7 +244,7 @@ def main():
                 continue
 
             fix = interpFix(timesGps, timesFile, fix)
-            print(fix)
+
             if buildH5(header, rx, fix, file) == -1:
                 print("Faild to build HDF5\n")
                 continue

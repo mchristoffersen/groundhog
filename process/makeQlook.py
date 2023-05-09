@@ -13,30 +13,31 @@ import glob
 def cli():
     # Command line interface
     parser = argparse.ArgumentParser(description="Generate quicklook of Groundhog data")
+
     parser.add_argument(
-        "files",
+        "--dir",
         type=str,
-        nargs="+",
-        help="Groundhog HDF5 file(s) to generate quicklooks from",
+        help="Directory of groundhog HDF5 file(s) to generate quicklooks from",
+        default="/home/radar/groundhog/data",
     )
     args = parser.parse_args()
     return args
 
 
 def main():
-    # args = cli()
-    # for file in args.files:
+    args = cli()
 
-    # Hardcoding data location
-    data_dir = "/home/radar/groundhog/data/*.h5"
+    if(len(glob.glob(args.dir + "/*.h5")) == 0):
+        print("No files found, exiting")
+        return 1
 
-    for file in glob.glob(data_dir):
+    for file in glob.glob(args.dir + "/*.h5"):
         try:
             print(file)
             fd = h5py.File(file)
-            rx = fd["raw"]["rx"][:]
+            rx = fd["raw"]["rx0"][:]
             fs = fd["raw"].attrs["fs"]
-            fd.close()
+            fd = h5py.File(file)
 
             # Bandpass filter
             flo = 0.5e6
