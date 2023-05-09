@@ -47,7 +47,7 @@ def parseHeader(data, file):
 
 def parseTraces(data, spt, file):
     partial = False
-    bpt = 8 * spt + 19  # bytes per trace
+    bpt = 8 * spt + 26  # bytes per trace
 
     if data[0:4] != b"\xce\xfa\xed\xfe":
         print(
@@ -81,19 +81,19 @@ def parseTraces(data, spt, file):
 
     data = data[4:]
     for i in range(ntrace):
-        times.append(data[i * bpt : i * bpt + 19].decode("utf-8"))
-        rx[:, i] = struct.unpack("q" * spt, data[i * bpt + 19 : (i + 1) * bpt])
+        times.append(data[i * bpt : i * bpt + 26].decode("utf-8"))
+        rx[:, i] = struct.unpack("q" * spt, data[i * bpt + 26 : (i + 1) * bpt])
 
     return rx, times
 
 
-def buildH5(header, rx, times, file):
+def buildH5(header, rx, fix, file):
     try:
         fname = os.path.basename(file).replace(".dat", "")
         outfile = (
             os.path.dirname(file)
             + "/"
-            + times[0].replace(":", "-")
+            + fix[0].replace(":", "-")
             + "_"
             + fname
             + ".h5"
@@ -146,7 +146,6 @@ def parseGPS(file):
     gps = np.zeros((len(fixs), 4))  # lon, lat, hgt, time
     for i, fix in enumerate(fixs):
         fix = fix.split(",")
-        gps[i, 3] = np.float64(fix[1])
         gps[i, 1] = DDMtoDD(fix[2])
         gps[i, 0] = DDMtoDD(fix[4])
         gps[i, 2] = fix[9]
@@ -156,19 +155,28 @@ def parseGPS(file):
 
         if fix[5] == "W":
             gps[i, 0] *= -1
+            
+        # ADD GPS TIME PARSING (USING GPZDA) AND DEAL WITH THAT
+        # IN INTERPOLATION
 
     return systs, gps
 
 
 def interpFix(timesGps, timesFile, fix):
-    timesGps = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S:")) for t in timesGps])
-    timesFile = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S")) for t in timesFile])
-    # Interpolate repeated file times
-    _, uidx = np.unique(timesFile, return_index=True)
-    idx = np.arange(len(timesFile))
-    timesFile = np.interp(idx, uidx, timesFile[uidx])
-    print(np.diff(timesFile))
+    # Reference everyting to first GPS time
+    timesGps = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f:")) for t in timesGps])
+    timesFile = np.array([time.mktime(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S.%f")) for t in timesFile])
 
+    # Check for suspicious things
+    if(timesGps[0] > timesFile[0] or timesGps[-1] < timesFile[-1]):
+        print("GPS times do not entirely contain data file times, proceed with caution")
+
+    loni = np.interp(timesFile, timesGps, fix[:,0])
+    lati = np.interp(timesFile, timesGps, fix[:,1])
+    hgti = np.interp(timesFile, timesGps, fix[:,2])
+    timei = np.interp(timesFile, timesGps, fix[:,3])
+
+    return np.dstack((loni, lati, hgti, timei))
 
 def main():
     args = cli()
@@ -216,9 +224,9 @@ def main():
                 )
                 continue
 
-            gps = interpFix(timesGps, timesFile, fix)
-
-            if buildH5(header, rx, times, file) == -1:
+            fix = interpFix(timesGps, timesFile, fix)
+            print(fix)
+            if buildH5(header, rx, fix, file) == -1:
                 print("Faild to build HDF5\n")
                 continue
 

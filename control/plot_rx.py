@@ -18,7 +18,7 @@ t = 1e6*np.arange(len(data)) / 25e6
 
 plt.figure(figsize=(16, 8))
 plt.plot(t, data, "k-")
-plt.xlim(0, 500)
+plt.xlim(0, 5000)
 plt.xlabel("Time ($\mu$s)")
 plt.title("PRESS [ENTER] TO CLOSE")
 plt.draw()

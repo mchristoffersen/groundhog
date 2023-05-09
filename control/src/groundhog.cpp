@@ -203,7 +203,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
       ntrace++;
       // Print status message to screen
       std::cout << "  " << tmstr << " -- "
-                << "Traces: " << ntrace << "    Full Buff: " << fullq.size()
+                << "Traces: " << ntrace
                 << "    Free Buff: " << freeq.size() << "        \r"
                 << std::flush;
     }
