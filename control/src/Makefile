@@ -2,20 +2,14 @@ CC       = g++
 CMPFLAGS = -g -pthread
 BSTFLAGS = -lboost_program_options -lboost_thread -lboost_atomic -lboost_date_time
 UHDFLAGS = -luhd
-OBJFILES = groundhog.o
-TARGET   = ./radar
 
-all: groundhog
+all: clean format test radar
 
-groundhog:
-	$(CC) -o $(TARGET) groundhog.cpp $(BSTFLAGS) $(UHDFLAGS) $(CMPFLAGS)
-#all: $(TARGET)
-
-#$(TARGET): $(OBJFILES)
-#	$(CC) -o $@ $^ $(BSTFLAGS) $(UHDFLAGS) $(CMPFLAGS)
-
-#%.o: %.cpp %.h
-#	$(CC) -o $@ $< -c $(CMPFLAGS)
-
-#clean:
-#	rm -f $(OBJFILES) $(TARGET)
+radar: radar.cpp recv.cpp
+	$(CC) -o radar radar.cpp recv.cpp $(BSTFLAGS) $(UHDFLAGS) $(CMPFLAGS)
+test: test.cpp recv.cpp
+	$(CC) -o test test.cpp recv.cpp $(BSTFLAGS) $(CMPFLAGS)
+format:
+	clang-format --style=Google -i radar.cpp recv.cpp recv.h TSQueue.h test.cpp
+clean:
+	rm -f radar test
