@@ -10,5 +10,5 @@
 filename=$(/home/radar/groundhog/control/generate-filename.py)
 
 gpspipe -d -r -u -o "$filename.txt"
-./src/radar --file "$filename.dat" --trigger 2500 --pretrig 8 --spt 512 --stack 500
+./src/radar --file "$filename.dat" --trigger 20000 --pretrig 8 --spt 600 --stack 10
 pkill gpspipe
