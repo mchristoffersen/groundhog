@@ -3,6 +3,7 @@ data/
 
 # Compiled radar binary
 control/src/radar
+control/src/test
 
 # Jupyter stuff
 *.ipynb_checkpoints/
