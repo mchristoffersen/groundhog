@@ -5,7 +5,7 @@
 import os
 import sys
 
-base = "/home/radar/groundhog/data/groundhog"
+base = "/home/groundhog/groundhog/data/groundhog"
 
 for i in range(10000):
     name = base + "%04d" % i

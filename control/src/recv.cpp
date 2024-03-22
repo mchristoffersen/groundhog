@@ -183,7 +183,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
 
       // save trace
       fd.write((char *)trace, spt * sizeof(int64_t));
-      
+
       // reset trace
       for (size_t i = 0; i < spt; i++) {
         trace[i] = 0;

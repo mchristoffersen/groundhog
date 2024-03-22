@@ -10,6 +10,6 @@ radar: radar.cpp recv.cpp
 test: test.cpp recv.cpp
 	$(CC) -o test test.cpp recv.cpp $(BSTFLAGS) $(CMPFLAGS)
 format:
-	clang-format --style=Google -i radar.cpp recv.cpp recv.h TSQueue.h test.cpp
+	clang-format --style=Google -i radar.cpp recv.cpp recv.h tsQueue.h test.cpp
 clean:
 	rm -f radar test
