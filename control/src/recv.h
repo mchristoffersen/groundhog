@@ -2,13 +2,6 @@
 #include <complex>
 #include <cstddef>
 
-#include "TSQueue.h"
-
-// Queues for passing data from radio download thread to triggering/stacking
-// thread
-static TSQueue<std::complex<short> *> freeq;
-static TSQueue<std::complex<short> *> fullq;
-
 size_t ampTriggerSingle(std::complex<short> *buff, size_t buff_len,
                         short trigger);
 

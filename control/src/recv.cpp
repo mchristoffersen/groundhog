@@ -9,6 +9,13 @@
 #include <fstream>
 #include <iostream>
 
+#include "tsQueue.h"
+
+// Queues for passing data from radio download thread to triggering/stacking
+// thread
+tsQueue<std::complex<short> *> freeq;
+tsQueue<std::complex<short> *> fullq;
+
 size_t ampTriggerSingle(std::complex<short> *buff, size_t buff_len,
                         short trigger) {
   /* Return location of first trigger in an array
@@ -69,21 +76,32 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
   size_t skipsamp = size_t(0.95 * (fs / prf));
   size_t skipped = 0;  // skipped sample counter for loop
 
-  // buffer pointers for previous, current, next frame
-  std::complex<short> *prv_buff;
-  std::complex<short> *cur_buff;
-  std::complex<short> *nxt_buff;
-
-  // Get first three frames
-  prv_buff = fullq.pop();
-  cur_buff = fullq.pop();
-  nxt_buff = fullq.pop();
-
   // Detect first trigger, iterate through frames until one is found
   bool trig = false;
   size_t trigloc = 0;
   size_t sample_offset;
   size_t ntrace = 0;
+
+  // buffer pointers for previous, current, next frame
+  std::complex<short> *prv_buff;
+  std::complex<short> *cur_buff;
+  std::complex<short> *nxt_buff;
+
+  // check if fullq has any buffers to pop
+  if (fullq.size() == 0) {
+    std::cout << "fullq empty - delaying 500 ms" << std::endl;
+    usleep(500000);
+  }
+
+  if (fullq.size() == 0) {
+    std::cout << "fullq still empty - quitting" << std::endl;
+    goto CLOSE;
+  }
+
+  // Get first three frames
+  prv_buff = fullq.pop();
+  cur_buff = fullq.pop();
+  nxt_buff = fullq.pop();
 
   // Print file name
   std::cout << file << ":" << std::endl;
@@ -95,7 +113,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
       while (fullq.empty()) {
         // See if thread has been interrupted (and sleep for a bit if not)
         try {
-          boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+          boost::this_thread::sleep(boost::posix_time::milliseconds(10));
         } catch (boost::thread_interrupted &) {
           goto CLOSE;
         }
@@ -165,12 +183,17 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
 
       // save trace
       fd.write((char *)trace, spt * sizeof(int64_t));
+      
       // reset trace
       for (size_t i = 0; i < spt; i++) {
         trace[i] = 0;
       }
       stacktrack = 0;  // reset counter
       ntrace++;
+
+      // force flush of i/o buffer (write to disk now!)
+      std::flush(fd);
+
       // Print status message to screen
       std::cout << "  " << tmstr << " -- "
                 << "Traces: " << ntrace << "    Free Buff: " << freeq.size()
@@ -187,7 +210,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
         // See if thread has been interrupted (and sleep for a bit if
         // not)
         try {
-          boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+          boost::this_thread::sleep(boost::posix_time::milliseconds(10));
         } catch (boost::thread_interrupted &) {
           goto CLOSE;
         }
@@ -212,7 +235,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
           // See if thread has been interrupted (and sleep for a bit if
           // not)
           try {
-            boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+            boost::this_thread::sleep(boost::posix_time::milliseconds(10));
           } catch (boost::thread_interrupted &) {
             goto CLOSE;
           }
@@ -238,7 +261,7 @@ CLOSE:
   int magic2 = 0xDEADDEAD;
   fd.write((char *)&magic2, 4);
   fd.close();
-  std::cout << "Consumer dead" << std::endl;
+  std::cout << std::endl << "Consumer dead" << std::endl;
   return 0;
 }
 
@@ -284,19 +307,15 @@ size_t detectPRF(std::complex<short> *buff, size_t buff_len, short trigger,
   // Calculate mean time difference between triggers
   double dt;
   for (size_t i = 0; i < trig_count - 1; i++) {
-    std::cout << "trig dt: " << trig_samp[i + 1] - trig_samp[i] << std::endl;
     dt += trig_samp[i + 1] - trig_samp[i];
   }
-  std::cout << std::endl;
-  dt /= trig_count-1;
+  dt /= trig_count - 1;
   dt /= rate;
 
   size_t prf = 1.0 / dt;
 
-  std::cout << "dt: " << dt << std::endl;
-
   // Round to nearest thousand
-  //if (prf % 1000 < 500) {
+  // if (prf % 1000 < 500) {
   //  prf = prf - (prf % 1000);
   //} else {
   //  prf = prf + (1000 - (prf % 1000));

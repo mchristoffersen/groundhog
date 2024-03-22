@@ -17,10 +17,10 @@ def cli():
         description="Convert Groundhog digitizer files to HDF5"
     )
     parser.add_argument(
-        "--dir",
+        "files",
         type=str,
-        help="Directory of digitizer file(s) to convert to HDF5",
-        default="/home/radar/groundhog/data",
+        help="Digitizer file(s) to convert to HDF5",
+        nargs="+"
     )
     args = parser.parse_args()
     return args
@@ -90,9 +90,12 @@ def parseTraces(data, spt, file):
 
 def buildH5(header, rx, fix, file):
     try:
-        fname = os.path.basename(file).replace(".dat", "")
-        time0 = time.gmtime(fix[0, 3])
-        time0 = time.strftime("%Y-%m-%dT%H-%M-%S", time0)
+        fname = os.path.basename(file).replace(".ghog", "")
+        if(fix is not None):
+            time0 = time.gmtime(fix[0, 3])
+            time0 = time.strftime("%Y-%m-%dT%H-%M-%S", time0)
+        else:
+            time0 = "unk"
         outfile = (
             os.path.dirname(file)
             + "/"
@@ -107,7 +110,9 @@ def buildH5(header, rx, fix, file):
 
         raw = fd.create_group("raw")
         raw.create_dataset("rx0", data=rx)
-        raw.create_dataset("time", data=fix)
+
+        if(fix is not None):
+            raw.create_dataset("time", data=fix)
 
         for k, v in header.items():
             raw.attrs[k] = v
@@ -199,12 +204,8 @@ def interpFix(timesGps, timesFile, fix):
 
 def main():
     args = cli()
-    files = glob.glob(args.dir + "/*.dat")
 
-    if len(files) == 0:
-        print("No data files found, exiting")
-
-    for file in files:
+    for file in args.files:
         try:
             print("Converting " + file)
             try:
@@ -218,42 +219,46 @@ def main():
 
             if len(data) < 46:
                 print(
-                    "Incomplete file, only partial header present -- skipping conversion\n"
+                    "%s - Incomplete file, only partial header present. Skipping conversion" % file
                 )
                 continue
 
             header = parseHeader(data, file)
 
             if header == -1:
-                print("Failed to parse file header\n")
+                print("%s - Failed to parse file header" % file)
                 continue
 
             rx, timesFile = parseTraces(data[46:], header["spt"], file)
 
             if timesFile == -1:
-                print("Failed to parse file data segment\n")
+                print("%s - Failed to parse file data segment" % file)
                 continue
 
-            gpsFile = file.replace(".dat", ".txt")
-            timesGps, fix = parseGPS(gpsFile)
+            gpsFile = file.replace(".ghog", ".gps")
+            if(not os.path.isfile(gpsFile)):
+                print("%s - No GPS file found. No GPS information will be included in HDF5." % file)
+                fix = None
+            else:
+                timesGps, fix = parseGPS(gpsFile)
 
-            if timesGps == -1:
-                print(
-                    "No GPS file found or failed to parse GPS file -- skipping conversion\n"
-                )
-                continue
-
-            fix = interpFix(timesGps, timesFile, fix)
+                if timesGps == -1:
+                    print(
+                        "%s - Failed to parse GPS file. No GPS information will be included in HDF5." % file
+                    )
+                    fix = None
+                else:
+                    fix = interpFix(timesGps, timesFile, fix)
 
             if buildH5(header, rx, fix, file) == -1:
-                print("Faild to build HDF5\n")
+                print("%s - Failed to build HDF5." % file)
                 continue
 
             print()
 
         except Exception as e:
             print(e)
-            print("Unanticipated failure -- skipping conversion\n")
+            print("%s - Unanticipated failure. Skipping conversion." % file)
 
     return 0
 

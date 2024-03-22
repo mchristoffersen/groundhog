@@ -19,6 +19,7 @@
 #include <uhd/utils/thread.hpp>
 
 #include "recv.h"
+#include "tsQueue.h"
 
 namespace po = boost::program_options;
 
@@ -219,9 +220,12 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
             << "Stacking: " << stack << std::endl
             << "Trigger amplitude: " << trigger << std::endl;
 
-  // spin up consumer thread
+  // spin up consumer thread (which initializes queues)
   boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack,
                          trigger, rate, file);
+
+  extern tsQueue<std::complex<short> *> freeq;
+  extern tsQueue<std::complex<short> *> fullq;
 
   // Malloc a bunch of memory chunks for rx
   for (size_t i = 0; i < 2000; i++) {

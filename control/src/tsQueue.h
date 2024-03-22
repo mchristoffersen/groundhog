@@ -1,4 +1,5 @@
 // C++ implementation of a thread safe queue
+#pragma once
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
@@ -6,7 +7,7 @@
 
 // Thread-safe queue
 template <typename T>
-class TSQueue {
+class tsQueue {
  private:
   // Underlying queue
   std::queue<T> m_queue;
