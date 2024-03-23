@@ -5,6 +5,7 @@ import argparse
 import os
 import time
 import calendar
+import traceback
 
 import numpy as np
 import h5py
@@ -88,11 +89,11 @@ def parseTraces(data, spt, file):
     return rx, times
 
 
-def buildH5(header, rx, fix, file):
+def buildH5(header, rx, gps, file):
     try:
         fname = os.path.basename(file).replace(".ghog", "")
-        if(fix is not None):
-            time0 = time.gmtime(fix[0, 3])
+        if(gps is not None):
+            time0 = time.gmtime(gps["utc"][0])
             time0 = time.strftime("%Y-%m-%dT%H-%M-%S", time0)
         else:
             time0 = "unk"
@@ -111,8 +112,8 @@ def buildH5(header, rx, fix, file):
         raw = fd.create_group("raw")
         raw.create_dataset("rx0", data=rx)
 
-        if(fix is not None):
-            raw.create_dataset("time", data=fix)
+        if(gps is not None):
+            raw.create_dataset("gps0", data=gps)
 
         for k, v in header.items():
             raw.attrs[k] = v
@@ -179,7 +180,7 @@ def parseGPS(file):
         if gga[5] == "W":
             fix[i, 0] *= -1
 
-        # Convert UTC time to seconds of day
+        # Convert UTC time to seconds since epoch
         fix[i, 3] = calendar.timegm(time.strptime(zda[4] + zda[3] + zda[2] + zda[1], "%Y%m%d%H%M%S.%f"))
 
     return tgpgga, fix
@@ -201,6 +202,90 @@ def interpFix(timesGps, timesFile, fix):
 
     return np.stack((loni, lati, hgti, timei)).T
 
+def restack(rx0, rxFix, txFix, intrvl, skip=False):
+    ## Reproject and restack ##
+    # This will need to be modified to work with single gps data
+
+    if(skip):
+        return rx0, rxFix, txFix
+
+    geo = "+proj=longlat +datum=WGS84 +no_defs"
+    xyz = "+proj=geocent +no_defs"
+    utm = "+proj=utm +zone=6 +datum=WGS84 +units=m +no_defs"
+
+    xform = pyproj.Transformer.from_crs(geo, xyz)
+
+    x, y, z = xform.transform(rxFix["lon"], rxFix["lat"], rxFix["hgt"])
+
+    dd = np.sqrt(np.diff(x)**2 + np.diff(y)**2 + np.diff(z)**2)
+    plt.plot(dd)
+
+    dd[dd <= .5] = 0
+
+    cumdd = np.cumsum(dd)
+    cumdd = np.append(0, cumdd)
+    
+    #plt.figure()
+    #plt.plot(cumdd)
+    #plt.figure()
+    #plt.plot(dd)
+    #plt.show()
+    # Use np.interp
+    #ddint = np.array(range(0, int(cumdd[-1]), intrvl))
+    #rxInt = np.zeros((rx0.shape[0], len(ddint)), dtype=np.float32)
+    #for i in range(rx0.shape[0]):
+    #    rxInt[i, :] = np.interp(ddint, cumdd, rx0[i, :])
+
+    #plt.imshow(rxInt, cmap="Greys", vmin=np.percentile(rxInt, 5), vmax=np.percentile(rxInt, 95), aspect="auto")
+    #plt.show()
+
+    dist = cumdd[-1]  # Total distance
+    ntrace = int(dist//intrvl)
+
+    rxRestack = np.zeros((rx0.shape[0], ntrace))
+    rxLat = np.zeros(ntrace)
+    rxLon = np.zeros(ntrace)
+    rxHgt = np.zeros(ntrace)
+    txLat = np.zeros(ntrace)
+    txLon = np.zeros(ntrace)
+    txHgt = np.zeros(ntrace)
+
+    for i in range(ntrace):
+        stack_slice = np.logical_and(cumdd > i*intrvl, cumdd < (i+1)*intrvl)
+        nstack = np.sum(stack_slice)
+        if(nstack == 0):
+            rxRestack[:, i] = rxRestack[:, i-1]
+            rxLat[i] = rxLat[i-1]
+            rxLon[i] = rxLon[i-1]
+            rxHgt[i] = rxHgt[i-1]
+            txLat[i] = txLat[i-1]
+            txLon[i] = txLon[i-1]
+            txHgt[i] = txHgt[i-1]
+            continue
+
+        rxRestack[:, i] = np.sum(rx0[:, stack_slice], axis=1)/nstack
+        rxLat[i] = np.mean(rxFix["lat"][stack_slice])
+        rxLon[i] = np.mean(rxFix["lon"][stack_slice])
+        rxHgt[i] = np.mean(rxFix["hgt"][stack_slice])
+        txLat[i] = np.mean(txFix["lat"][stack_slice])
+        txLon[i] = np.mean(txFix["lon"][stack_slice])
+        txHgt[i] = np.mean(txFix["hgt"][stack_slice])
+
+# lon, lat, hgt, utc
+    fix_t = np.dtype(
+        [("lat", np.float32), ("lon", np.float32), ("hgt", np.float32)]
+    )
+
+    #plt.imshow(rxRestack, cmap="Greys", vmin=np.percentile(rxRestack, 5), vmax=np.percentile(rxRestack, 95), aspect="auto")
+    #plt.show()
+
+    rxFixStack = np.empty(len(rxLat), dtype=fix_t)
+    txFixStack = np.empty(len(txLat), dtype=fix_t)
+    for i in range(len(rxLat)):
+        rxFixStack[i] = (rxLat[i], rxLon[i], rxHgt[i])
+        txFixStack[i] = (txLat[i], txLon[i], txHgt[i])
+
+    return rxRestack, rxFixStack, txFixStack
 
 def main():
     args = cli()
@@ -250,7 +335,17 @@ def main():
                 else:
                     fix = interpFix(timesGps, timesFile, fix)
 
-            if buildH5(header, rx, fix, file) == -1:
+            # get fix to right datattype for hdf5
+        # lon, lat, hgt, utc
+            if(fix is not None):
+                gps_t = np.dtype([("lon", "f8"), ("lat", "f8"), ("hgt", "f8"), ("utc", "f8")])
+                gps = [None]*fix.shape[0]
+                for i in range(fix.shape[0]):
+                    gps[i] = tuple(fix[i,:])
+                gps = np.array(gps, dtype=gps_t)
+
+
+            if buildH5(header, rx, gps, file) == -1:
                 print("%s - Failed to build HDF5." % file)
                 continue
 
@@ -258,6 +353,7 @@ def main():
 
         except Exception as e:
             print(e)
+            print(traceback.format_exc())
             print("%s - Unanticipated failure. Skipping conversion." % file)
 
     return 0
