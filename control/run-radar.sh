@@ -7,8 +7,8 @@
 # spt - samples per trace (default 25 MHz)
 # pretrig - number of pre-trigger samples to save in each trace
 
-filename=$(/home/radar/groundhog/control/generate-filename.py)
+filename=$(/home/groundhog/groundhog/control/generate-filename.py)
 
 gpspipe -d -r -u -o "$filename.txt"
-./src/radar --file "$filename.dat" --trigger 20000 --pretrig 8 --spt 600 --stack 10
+./src/radar --file "$filename.ghog" --trigger 10000 --pretrig 8 --spt 512 --stack 256
 pkill gpspipe

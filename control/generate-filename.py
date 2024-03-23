@@ -9,6 +9,6 @@ base = "/home/groundhog/groundhog/data/groundhog"
 
 for i in range(10000):
     name = base + "%04d" % i
-    if (not os.path.isfile(name + ".dat")) and (not os.path.isfile(name + ".txt")):
+    if (not os.path.isfile(name + ".ghog")) and (not os.path.isfile(name + ".txt")):
         sys.stdout.write(name)
         break

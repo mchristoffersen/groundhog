@@ -15,10 +15,10 @@ def cli():
     parser = argparse.ArgumentParser(description="Generate quicklook of Groundhog data")
 
     parser.add_argument(
-        "--dir",
+        "files",
         type=str,
-        help="Directory of groundhog HDF5 file(s) to generate quicklooks from",
-        default="/home/radar/groundhog/data",
+        help="Groundhog HDF5 file(s) to generate quicklooks from",
+        nargs="+",
     )
     args = parser.parse_args()
     return args
@@ -27,11 +27,7 @@ def cli():
 def main():
     args = cli()
 
-    if(len(glob.glob(args.dir + "/*.h5")) == 0):
-        print("No files found, exiting")
-        return 1
-
-    for file in glob.glob(args.dir + "/*.h5"):
+    for file in args.files:
         try:
             print(file)
             fd = h5py.File(file)

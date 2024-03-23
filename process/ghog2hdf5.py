@@ -235,7 +235,7 @@ def main():
                 print("%s - Failed to parse file data segment" % file)
                 continue
 
-            gpsFile = file.replace(".ghog", ".gps")
+            gpsFile = file.replace(".ghog", ".txt")
             if(not os.path.isfile(gpsFile)):
                 print("%s - No GPS file found. No GPS information will be included in HDF5." % file)
                 fix = None
