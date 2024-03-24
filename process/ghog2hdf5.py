@@ -324,6 +324,7 @@ def main():
             if(not os.path.isfile(gpsFile)):
                 print("%s - No GPS file found. No GPS information will be included in HDF5." % file)
                 fix = None
+                gps = None
             else:
                 timesGps, fix = parseGPS(gpsFile)
 
@@ -332,11 +333,11 @@ def main():
                         "%s - Failed to parse GPS file. No GPS information will be included in HDF5." % file
                     )
                     fix = None
+                    gps = None
                 else:
                     fix = interpFix(timesGps, timesFile, fix)
 
             # get fix to right datattype for hdf5
-        # lon, lat, hgt, utc
             if(fix is not None):
                 gps_t = np.dtype([("lon", "f8"), ("lat", "f8"), ("hgt", "f8"), ("utc", "f8")])
                 gps = [None]*fix.shape[0]

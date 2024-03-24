@@ -132,7 +132,7 @@ int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
     // Stack (or stack then save if stacked enough)
     // Get pretrigger samples (check if need to use prv_buff)
 
-    if (trigloc - pretrig < 0) {
+    if (trigloc < pretrig) {
       // If some pre-trigger samples are in previous buffer
       // look-behind
       for (size_t i = 0; i < (pretrig - trigloc); i++) {
