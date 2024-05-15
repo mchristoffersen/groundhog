@@ -1,0 +1,157 @@
+body {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: white;
+  font-size: min(1vw, 1.333vh);
+}
+
+div.viewport {
+  width: 100em;
+  height: 75em;
+  position: relative;
+}
+
+div.tab {
+  width: 100%;
+  height: 99%;
+  position: absolute;
+}
+
+.ui-tabs .ui-tabs-nav li a {font-size:1.25em!important;}
+
+div.prev2d {
+	width: 80%;
+	height: 48%;
+	left: 2%;
+	top: 6%;
+	position: absolute;
+	background: #AAAAAA;
+	text-align: center;
+}
+
+div.prev1d {
+	width: 14%;
+	height: 48%;
+	left: 84%;
+	top: 6%;
+	position: absolute;
+	background: #AAAAAA;
+	text-align: center;
+}
+
+div.status {
+	width: 68%;
+	height: 25%;
+	left: 2%;
+	top: 61%;
+	position: absolute;
+	background: #AAAAAA;
+	text-align: center;
+}
+
+div.time,
+div.gain {
+	width: 33%;
+	height: 6%;
+	top: 55%;
+	position: absolute;	
+}
+
+div.time {
+	left: 2%;
+
+}
+
+div.gain {
+	left: 37%;
+}
+
+p.rangelabel{
+	border-radius: 0.1em;
+  margin: 0%;
+  padding: 0%;
+  top: 0%;
+  font-size: 1.5em;
+  position: absolute;
+}
+
+
+div.slider {
+  width: 100%;
+  top: 50%;
+  position: absolute;
+}
+
+button {
+	width: 20%;
+	height: 10%;
+	font-size: 4em!important;
+	border-radius: 0.25em;
+	position: absolute;
+	color: #FFFFFF;
+}
+
+button.start {
+	left: 11.333%;
+	top: 88%;
+	background-color: #50D113;
+  border: 0.1em #50D113 solid;
+}
+
+button.stop {
+	left: 40.667%;
+	top: 88%;
+	background-color: #D12A13;
+  border: 0.1em #D12A13 solid;
+}
+
+button.start:active {
+  background-color: #FFFFFF;
+ 	color: #50D113;
+}
+
+button.stop:active {
+  background-color: #FFFFFF;
+ 	color: #D12A13;
+}
+
+table {
+	background: #D9D9D9;
+	border-radius: 0.5em;
+	border: 0.25em black solid;
+	width: 26%;
+	position: absolute;
+}
+
+table.radar {
+	height: 16%;
+	top: 56%;
+	left: 72%;
+}
+
+table.gnss {
+	height: 24%;
+	top: 74%;
+	left: 72%;
+}
+
+table td {
+	vertical-align: middle;
+	font-size: 2em;
+}
+
+table td:nth-child(1) {
+  text-align: right;
+  width: 30%;
+}
+
+table td:nth-child(2) {
+  text-align: center;
+  background: white;
+  border-radius: 0.1em;
+  border: 0.1em #686868 solid;
+}

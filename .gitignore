@@ -7,3 +7,13 @@ control/src/test
 
 # Jupyter stuff
 *.ipynb_checkpoints/
+
+# LaTeX stuff
+docs/*.aux
+docs/*.cpt
+docs/*.log
+docs/*.toc
+docs/*.pdf
+
+# Python stuff
+__pycache__/
