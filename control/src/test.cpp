@@ -70,7 +70,7 @@ int main() {
 
   // Make fake data and feed to consumer
   std::complex<short> *z;
-  for (size_t i = 0; i < 500; i++) {
+  for (size_t i = 0; i < 50000; i++) {
     z = freeq.pop();
     for (size_t j = 0; j < spb; j++) {
       if (!(j % 1000)) {    

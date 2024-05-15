@@ -32,7 +32,7 @@ def main():
             print(file)
             fd = h5py.File(file)
             rx = fd["raw"]["rx0"][:]
-            fs = fd["raw"].attrs["fs"]
+            fs = fd["raw"]["rx0"].attrs["fs"]
             fd = h5py.File(file)
 
             # Bandpass filter
@@ -42,22 +42,26 @@ def main():
             rx = sig.sosfiltfilt(sos, rx, axis=0)
 
             # Remove mean trace
-            mt = np.mean(rx, axis=1)
-            rx = rx - mt[:, np.newaxis]
+            #mt = np.mean(rx, axis=1)
+            #rx = rx - mt[:, np.newaxis]
 
             # Red-blue image
             plt.figure(figsize=(8, 4))
+            gain = np.arange(rx.shape[0])**1.5
+            img = rx*gain[:,np.newaxis]
             plt.imshow(
-                rx,
+                img,
                 aspect="auto",
                 cmap="seismic",
-                vmin=-np.std(rx) * 0.5,
-                vmax=np.std(rx) * 0.5,
+                vmin=np.percentile(img, 1),
+                vmax=np.percentile(img, 99),
                 extent=[0, rx.shape[1], 1e6 * rx.shape[0] / fs, 0],
             )
+            plt.ylim(10, 0)
             plt.xlabel("Trace Index")
-            plt.ylabel("Approx Two-Way Travel Time ($\mu$s)")
+            plt.ylabel("Approx Two-Way Travel Time ($\\mu$s)")
             plt.savefig(file.replace(".h5", "_rdbu.png"), dpi=200, bbox_inches="tight")
+            plt.close()
 
             # Take envelope
             rx = sig.hilbert(rx, axis=0)
@@ -74,9 +78,11 @@ def main():
                 vmax=np.percentile(img, 99),
                 extent=[0, rx.shape[1], 1e6 * rx.shape[0] / fs, 0],
             )
+            plt.ylim(10, 0)
             plt.xlabel("Trace Index")
-            plt.ylabel("Approx Two-Way Travel Time ($\mu$s)")
+            plt.ylabel("Approx Two-Way Travel Time ($\\mu$s)")
             plt.savefig(file.replace(".h5", "_envl.png"), dpi=200, bbox_inches="tight")
+            plt.close()
         except Exception as e:
             print(e)
             continue

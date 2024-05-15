@@ -28,17 +28,17 @@
 
 \section{Setup \& Operation}
 \subsection{Setup}
-\begin{enumerate}[1.]
+\begin{enumerate}
     \item Lay out four antenna elements. Usually this is done in an endfire orientation that looks like this ( | | ) as opposed to a broadside orientation ( $\mid \hspace{1em} \mid$ ). A broadside orientation could cause significant coupling between the two antennas, leading to excess ringing.
     \item Set up the transmitter (pulser):
-    \begin{enumerate}[(a)]
+    \begin{enumerate}
         \item Connect the two tansmit antenna elements to the ``-ve'' and ``+ve'' ports.
         \item Connect a 12v battery to the ``DC power in'' ports.
         \item \textbf{Note}: Sometimes the pulser fails to begin pulsing when the power is connected so be sure to check that yellow ``Active'' light is on when the power is connected. If it is not you should disconnect the reconnect power.
         \item \textbf{Note}: It is best to connect the antenna elements before powering the transmitter to avoid a chance of a significant shock.
     \end{enumerate}
     
-    \item Set up the receiver hardware \begin{enumerate}[(a)]
+    \item Set up the receiver hardware \begin{enumerate}
         \item Connect the two antenna elements to a BNC-banana jack adapter.
         \item Connect the BNC-banana jack adapter to the balanced port of a balun.
         \item Connect the unbalanced port of the balun to an anti-alias filter (something in the neighborhood of 10 MHz if you are digitizing at 20 MHz).
@@ -50,7 +50,7 @@
         \item \textbf{Note}: Connecting USB devices other than the Garmin GPS to the field laptop can potentially prevent communication with the GPS, so that should be avoided.
     \end{enumerate}
 
-    \item Verify operation of the transmitter and receiver \begin{enumerate}[(a)]
+    \item Verify operation of the transmitter and receiver \begin{enumerate}
         \item Open a terminal window on the field laptop and navigate to the directory \\\verb+/home/radar/groundhog/control+.
         \item Run the GPS test script, \verb+./gps-test.sh+. after a 5 second delay it will print out 4 or 5 GPGGA sentences if the Garmin GPS is communicating properly with the field laptop. If there are no GPGGA sentences printed see the GPS troubleshooting section of this document (\ref{trouble_gps}) 
         \item Run the receiver test script, \verb+./plot_rx.py+. It will record and plot one tenth of a second of samples. If no plot is generated see the USRP N210 troubleshooting section of this document (\ref{trouble_usrp}). The plot should appear somewhat similar to Figure \ref{fig:plot_rx} although your ambient noise level may significantly vary. If the plot only appears to have noise see the transmitter and antenna troubleshooting sections of this document (\ref{trouble_xmit}, \ref{trouble_ant}).
@@ -62,7 +62,7 @@
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\textwidth]{figs/plot_rx.png}
+%\includegraphics[width=\textwidth]{figs/plot_rx.png}
 \cprotect\caption{An example of the graph produced by \verb:plotRX.py: when the transmitter and receiver are working properly. The positive and negative polarity amplitude spikes (to roughly +/- 3500 counts) are the transmitter pulses. The darker region of the plot is ambient noise and reflected pulses.}
 \label{fig:plot_rx}
 \end{figure}
@@ -92,6 +92,7 @@ The most common antenna issue is a complete break or an intermittent connection 
 
 There are a couple ways you can check an antenna. The quickest (if the antennas are laid out) is an antenna analyzer. This would qickly show if one of the elements has a break close to the feedpoint, as the antenna would be significantly de-tuned. The other method would be checking continuity with a multimeter. Use a pocket knife to strip some insulation from the antenna wire on either side of a resistor you want to check. Gently bending the antenna can help expose an intermittent connection.
 
+\newpage
 \section{Packing List}
 
 \textbf{RX}

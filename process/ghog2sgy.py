@@ -99,14 +99,26 @@ def main():
     parser.add_argument("rgram", help="USRDR radargram (.img) file", type=str)
     parser.add_argument("geom", help="USRDR geometry (.tab) file", type=str)
     parser.add_argument(
-        "--sim", "-s", metavar="sim", help="PDS sim (sim_lr.img) file", type=str, default=None
+        "--sim",
+        "-s",
+        metavar="sim",
+        help="PDS sim (sim_lr.img) file",
+        type=str,
+        default=None,
     )
     parser.add_argument(
-        "--out", "-o", metavar="out", help="Output directory (default: ./)", type=str, default="./"
+        "--out",
+        "-o",
+        metavar="out",
+        help="Output directory (default: ./)",
+        type=str,
+        default="./",
     )
     args = parser.parse_args()
 
-    out = args.out + "/" + args.rgram.split('/')[-1][:10] # Relies on PDS file naming convention (s_XXXXXXX_rgram.img)
+    out = (
+        args.out + "/" + args.rgram.split("/")[-1][:10]
+    )  # Relies on PDS file naming convention (s_XXXXXXX_rgram.img)
 
     gensegy(args.rgram, args.geom, args.sim, out)
 
@@ -173,9 +185,9 @@ def build_binhead(spt, ntrace, fs):
     # (14) Auxiliary traces per ensemble
     binhead += struct.pack(">H", 0)
     # (16) Sample interval
-    binhead += struct.pack(">H", int(1e12/fs/10))
+    binhead += struct.pack(">H", int(1e12 / fs / 10))
     # (18) Field recording sample interval
-    binhead += struct.pack(">H", int(1e12/fs/10))
+    binhead += struct.pack(">H", int(1e12 / fs / 10))
     # (20) Samples per trace
     binhead += struct.pack(">H", spt)
     # (22) Field recording samples per trace
@@ -342,7 +354,7 @@ def build_trchead(spt, i, x, y, fs):
     # (114) Samples in this trace
     trchead += struct.pack(">H", spt)
     # (116) Sample interval for this trace
-    trchead += struct.pack(">H", int(1e12/fs/10))
+    trchead += struct.pack(">H", int(1e12 / fs / 10))
     # (118) Gain type of field instruments
     trchead += struct.pack(">H", 0)
     # (120) Instrument gain constant
@@ -452,7 +464,7 @@ def parseGPS(file):
             gpzda.append(fix)
             tgpgza.append(syst)
 
-    if(len(gpgga) != len(gpzda)):
+    if len(gpgga) != len(gpzda):
         print("Number of GPGGA strings != number of GPZDA string, need to handle this")
         return -1, -1
 
@@ -460,7 +472,7 @@ def parseGPS(file):
     for i in range(len(gpgga)):
         gga = gpgga[i].split(",")
         zda = gpzda[i].split(",")
-        if(gga[1] != zda[1]):
+        if gga[1] != zda[1]:
             print("GPGGA and GPZDA misalignment, need to handle this")
             return -1, -1
 
@@ -475,24 +487,36 @@ def parseGPS(file):
             fix[i, 0] *= -1
 
         # Convert UTC time to seconds of day
-        fix[i, 3] = calendar.timegm(time.strptime(zda[4] + zda[3] + zda[2] + zda[1], "%Y%m%d%H%M%S.%f"))
+        fix[i, 3] = calendar.timegm(
+            time.strptime(zda[4] + zda[3] + zda[2] + zda[1], "%Y%m%d%H%M%S.%f")
+        )
 
     return tgpgga, fix
 
 
 def interpFix(timesGps, timesFile, fix):
     # Reference everyting to first GPS time
-    timesGps = np.array([calendar.timegm(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f:")) for t in timesGps])
-    timesFile = np.array([calendar.timegm(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S.%f")) for t in timesFile])
+    timesGps = np.array(
+        [
+            calendar.timegm(time.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f:"))
+            for t in timesGps
+        ]
+    )
+    timesFile = np.array(
+        [
+            calendar.timegm(time.strptime(t.strip(), "%Y-%m-%dT%H:%M:%S.%f"))
+            for t in timesFile
+        ]
+    )
 
     # Check for suspicious things
-    if(timesGps[0] > timesFile[0] or timesGps[-1] < timesFile[-1]):
+    if timesGps[0] > timesFile[0] or timesGps[-1] < timesFile[-1]:
         print("GPS times do not entirely contain data file times, proceed with caution")
 
-    loni = np.interp(timesFile, timesGps, fix[:,0])
-    lati = np.interp(timesFile, timesGps, fix[:,1])
-    hgti = np.interp(timesFile, timesGps, fix[:,2])
-    timei = np.interp(timesFile, timesGps, fix[:,3])
+    loni = np.interp(timesFile, timesGps, fix[:, 0])
+    lati = np.interp(timesFile, timesGps, fix[:, 1])
+    hgti = np.interp(timesFile, timesGps, fix[:, 2])
+    timei = np.interp(timesFile, timesGps, fix[:, 3])
 
     return np.stack((loni, lati, hgti, timei)).T
 

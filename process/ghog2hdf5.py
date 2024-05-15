@@ -128,6 +128,8 @@ def DDMtoDD(ddm):
 def parseGPS(file):
     try:
         nmeas = open(file, mode="r").read().splitlines()
+        nmeas = [nmea.strip("\x00") for nmea in nmeas]
+        nmeas = list(filter(None, nmeas))
     except Exception as e:
         print(e)
         return -1, -1
@@ -197,6 +199,11 @@ def parseGPS(file):
 
             continue
 
+    if(times == [] and lats == [] and lons == [] and hgts == []):
+        # Bail if no GPS info
+        print("No gps information found")
+        return -1
+
     # Handle day rollover if necessary
     tsyst, tgps = zip(*times)
     tgps = list(tgps)
@@ -211,9 +218,14 @@ def parseGPS(file):
         _, dates = zip(*dates)
         dates = list(dates)
     except ValueError:
-        # Handling weird ruth data
-        print("Missing date information. Hardcoding to 2024-03-26")
-        dates = [np.datetime64("2024-03-26")]
+        # Handling weird gulkana data
+        fid = int(file[-8:-4])
+        if(fid < 57):
+            print("Missing date information. Hardcoding to 2024-04-19")
+            dates = [np.datetime64("2024-04-19")]
+        else:
+            print("Missing date information. Hardcoding to 2024-04-20")
+            dates = [np.datetime64("2024-04-20")]
 
     # Handling other ruth issue
     if dates[0] > np.datetime64("2039"):
