@@ -1,0 +1,12 @@
+[Unit]
+Description=Groundhog Radar Manager
+
+
+[Service]
+ExecStart=/home/mchristo/proj/groundhog/control/groundhogd/groundhogd.py
+Restart=on-failure
+NotifyAccess=main
+WatchdogSec=10
+
+[Install]
+WantedBy=multi-user.target
