@@ -234,9 +234,9 @@ def update_gnss(n):
 
     fix = fixDict[data["fixType"]]
 
-    if(data["fixType"] in [0, 5]):
+    if data["fixType"] in [0, 5]:
         style["background"] = "#FF0000"
-    elif(data["fixType"] in [1, 2, 4]):
+    elif data["fixType"] in [1, 2, 4]:
         style["background"] = "#FF6E00"
 
     return (
@@ -244,12 +244,13 @@ def update_gnss(n):
             html.Tr([html.Td("Fix:"), html.Td(fix)]),
             html.Tr([html.Td("Date:"), html.Td(date)]),
             html.Tr([html.Td("Time:"), html.Td(time)]),
-            html.Tr([html.Td("Lon:"), html.Td("%.5f" % (data["lon"]*1e-7))]),
-            html.Tr([html.Td("Lat:"), html.Td("%.5f" % (data["lat"]*1e-7))]),
-            html.Tr([html.Td("Hgt:"), html.Td("%.3f" % (data["height"]*1e-3))]),
+            html.Tr([html.Td("Lon:"), html.Td("%.5f" % (data["lon"] * 1e-7))]),
+            html.Tr([html.Td("Lat:"), html.Td("%.5f" % (data["lat"] * 1e-7))]),
+            html.Tr([html.Td("Hgt:"), html.Td("%.3f" % (data["height"] * 1e-3))]),
         ],
         style,
     )
+
 
 cmt = """
 @callback(
@@ -286,6 +287,7 @@ def update_gnss_fake(n):
         style,
     )
 """
+
 
 @callback(
     Output("Radar_status_table", "children"), Input("update-interval", "n_intervals")
