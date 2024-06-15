@@ -57,7 +57,7 @@ int main() {
 
   // Spin up consumer thread
   boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack,
-                         trigger, rate, file);
+                         trigger, rate, file, false);
 
   extern tsQueue<std::complex<short> *> freeq;
   extern tsQueue<std::complex<short> *> fullq;
@@ -73,9 +73,9 @@ int main() {
   for (size_t i = 0; i < 50000; i++) {
     z = freeq.pop();
     for (size_t j = 0; j < spb; j++) {
-      if (!(j % 1000)) {    
+      if (!(j % 1000)) {
         z[j] = std::complex<short>(2, 0);
-        z[j+1] = std::complex<short>(10000, 0);
+        z[j + 1] = std::complex<short>(10000, 0);
         j++;
       } else {
         z[j] = std::complex<short>(0, 0);

@@ -2,6 +2,8 @@
 // Groundhog radar receiver control software
 // Real-mode streaming and triggering from Ettus N210
 
+#include <sys/socket.h>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
@@ -44,28 +46,23 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   size_t stack, spt, prf, pretrig;
   short trigger;
   double rate;
+  bool gui = false;
 
   po::options_description desc("Allowed options");
-  desc.add_options()("help", "help message")(
-      "file", po::value<std::string>(&file)->required(),
-      "(required) output file name")(
-      "rate", po::value<double>(&rate)->default_value(25e6, "25 MHz"),
-      "set sampling rate (Hz)")(
-      "stack", po::value<size_t>(&stack)->default_value(5000, "5k"),
-      "set trace stacking")("spt", po::value<size_t>(&spt)->default_value(512),
-                            "set samples per trace")(
-      "pretrig", po::value<size_t>(&pretrig)->default_value(8),
-      "set pre-trigger samples")(
-      "trigger", po::value<short>(&trigger)->default_value(50, "50"),
-      "set trigger threshold (counts)")(
-      "prf", po::value<size_t>(&prf)->default_value(0, "auto-detect"),
-      "pulse repetition frequency")(
-      "args",
-      po::value<std::string>(&args)->default_value(
-          "addr=192.168.10.2,type=usrp2"),
-      "(ADVANCED) multi uhd device address args")(
-      "subdev", po::value<std::string>(&subdev)->default_value("A:A"),
-      "(ADVANCED) subdevice specification");
+  // clang-format off
+  desc.add_options()
+  ("help", "help message")
+  ("file", po::value<std::string>(&file)->required(), "(required) output file name")
+  ("rate", po::value<double>(&rate)->default_value(25e6, "25 MHz"), "set sampling rate (Hz)")
+  ("stack", po::value<size_t>(&stack)->default_value(1000, "1k"), "set trace stacking")
+  ("spt", po::value<size_t>(&spt)->default_value(512), "set samples per trace")
+  ("pretrig", po::value<size_t>(&pretrig)->default_value(8), "set pre-trigger samples")
+  ("trigger", po::value<short>(&trigger)->default_value(50, "50"), "set trigger threshold (counts)")
+  ("prf", po::value<size_t>(&prf)->default_value(0, "auto-detect"), "pulse repetition frequency")
+  ("gui", po::bool_switch(&gui), "communicate with gui")
+  ("args", po::value<std::string>(&args)->default_value("addr=192.168.10.2,type=usrp2"), "(ADVANCED) multi uhd device address args")
+  ("subdev", po::value<std::string>(&subdev)->default_value("A:A"), "(ADVANCED) subdevice specification");
+  // clang-format on
 
   // Handle CLI
   po::variables_map vm;
@@ -76,12 +73,14 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
     std::cout << "Groundhog Radar Receiver " << desc << std::endl;
     std::cout << std::endl
               << "This application records impulse radar data "
-                 "to a file.\n"
+                 "to a HDF5 file.\n"
               << std::endl;
     return ~0;
   }
 
   po::notify(vm);
+
+  std::cout << "gui: " << gui << std::endl;
 
   // Whether to print overflow message
   bool overflow_message = true;
@@ -222,7 +221,7 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // spin up consumer thread (which initializes queues)
   boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack,
-                         trigger, rate, file);
+                         trigger, rate, file, gui);
 
   extern tsQueue<std::complex<short> *> freeq;
   extern tsQueue<std::complex<short> *> fullq;

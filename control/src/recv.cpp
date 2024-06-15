@@ -39,7 +39,8 @@ size_t ampTriggerSingle(std::complex<short> *buff, size_t buff_len,
 
 // Trigger and save samples
 int triggerAndStack(size_t prf, size_t spt, size_t pretrig, size_t spb,
-                    size_t stack, short trigger, double fs, std::string file) {
+                    size_t stack, short trigger, double fs, std::string file,
+                    bool gui) {
   // Make filename
   std::ofstream fd;
   fd.open(file, std::ios::out | std::ios::binary);
