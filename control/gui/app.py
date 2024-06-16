@@ -1,6 +1,11 @@
 import flask
 import numpy as np
 import datetime
+import socket
+import select
+import sys
+import pickle
+import time
 
 app = flask.Flask(__name__)
 
@@ -15,17 +20,24 @@ def home():
 
 @app.route("/_get_gnss")
 def get_gnss():
-    dt = str(datetime.datetime.now())
-    date = dt.split(" ")[0]
-    time = dt.split(" ")[1].split(".")[0]
-    llh = np.random.rand(3) * 90
+    try:
+        with open("/tmp/gnss_fix", mode="rb") as fd:
+            (gnssPosition, gnssTime, fixType, tfix, twrite) = pickle.load(fd)
+    except FileNotFoundError:
+        return flask.jsonify(fix="no GNSS")
+
+    twrite = time.time() - twrite
+    strDate = "%04d-%02d-%02d" % (gnssTime["year"], gnssTime["month"], gnssTime["day"])
+    strTime = "%02d:%02d:%02d" % (gnssTime["hour"], gnssTime["min"], gnssTime["sec"])
     return flask.jsonify(
-        fix="3D-GNSS",
-        date=date,
-        time=time,
-        lon="%.3f" % llh[0],
-        lat="%.3f" % llh[1],
-        hgt="%.3f" % llh[2],
+        fix=fixType,
+        date=strDate,
+        time=strTime,
+        lon="%.5f" % gnssPosition["lon"],
+        lat="%.5f" % gnssPosition["lat"],
+        hgt="%.3f" % gnssPosition["hgt"],
+        tfix=tfix,
+        twrite=twrite,
     )
 
 

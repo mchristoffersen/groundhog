@@ -1,0 +1,12 @@
+[Unit]
+Description=EVK-F9P GNSS Manager
+
+
+[Service]
+ExecStart=/home/mchristo/proj/groundhog/control/gnssd/gnssd.py
+Restart=on-failure
+NotifyAccess=main
+WatchdogSec=20
+
+[Install]
+WantedBy=multi-user.target

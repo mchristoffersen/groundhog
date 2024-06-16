@@ -37,6 +37,15 @@ $(document).ready(function () {
       $("td#lon").text(data.lon);
       $("td#lat").text(data.lat);
       $("td#hgt").text(data.hgt);
+      
+      // Set background color based on GNSS status
+      if (data.tfix < 2 && data.twrite < 2 && data.fix == "3D fix") {
+        $("table.gnss").css("background-color", "#36ff00");
+      } else if ((data.tfix < 10 || data.twrite < 10) && data.fix != "no fix") {
+        $("table.gnss").css("background-color", "orange");
+      } else {
+        $("table.gnss").css("background-color", "red");
+      }
     });
     return false;
   }
