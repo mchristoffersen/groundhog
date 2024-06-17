@@ -3,7 +3,7 @@ Description=EVK-F9P GNSS Manager
 
 
 [Service]
-ExecStart=/home/mchristo/proj/groundhog/control/gnssd/gnssd.py
+ExecStart=/home/radar/groundhog/control/gnssd/gnssd.py
 Restart=on-failure
 NotifyAccess=main
 WatchdogSec=20

@@ -155,3 +155,7 @@ table td:nth-child(2) {
   border-radius: 0.1em;
   border: 0.1em #686868 solid;
 }
+
+form {
+  font-size: 2em;
+}

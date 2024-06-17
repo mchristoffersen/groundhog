@@ -41,7 +41,7 @@ $(document).ready(function () {
       // Set background color based on GNSS status
       if (data.tfix < 2 && data.twrite < 2 && data.fix == "3D fix") {
         $("table.gnss").css("background-color", "#36ff00");
-      } else if ((data.tfix < 10 || data.twrite < 10) && data.fix != "no fix") {
+      } else if (data.tfix < 10 && data.twrite < 10 && data.fix != "no fix") {
         $("table.gnss").css("background-color", "orange");
       } else {
         $("table.gnss").css("background-color", "red");
@@ -60,6 +60,31 @@ $(document).ready(function () {
     });
     return false;
   }
+  
+  // Start button
+  $("#buttonStart").click(function() {
+    var trigger = $("#trigger").val();
+    var pretrig = $("#pretrig").val();
+    var spt = $("#spt").val();
+    var stack = $("#stack").val();
+  
+    $.post({
+      url: "/_start",
+      contentType: "application/json",
+      data: JSON.stringify({
+        trigger: trigger,
+        pretrig: pretrig,
+        spt: spt,
+        stack: stack
+      }),
+      success: function(data) {}
+    });
+  });
+  
+  // Stop button
+  $("#buttonStop").click(function() {
+    $.post("/_stop", function (data) {});
+  });
 
   update_radar();
   update_gnss();

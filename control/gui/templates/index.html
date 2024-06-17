@@ -44,12 +44,12 @@
           </div>
 
           <!-- Start button -->
-          <button id="start" class="start">
+          <button id="buttonStart" class="start">
             Start      
           </button>
 
           <!-- Stop button -->
-          <button class="stop">
+          <button id="buttonStop" class="stop">
             Stop
           </button>
 
@@ -102,7 +102,16 @@
           </table>
         </div>
         <div id="settings">
-          <p>Settings crap goes here</p>
+          <form>
+            <label for="trigger">Trigger threshold:</label><br>
+            <input type="text" id="trigger" name="trigger" value="10000" pattern="[0-9]"><br><br>
+            <label for="pretrig">Pre-trigger samples:</label><br>
+            <input type="text" id="pretrig" name="pretrig" value="8"><br><br>
+            <label for="spt">Samples per trace:</label><br>
+            <input type="text" id="spt" name="spt" value="512"><br><br>
+            <label for="stack">Stacking:</label><br>
+            <input type="text" id="stack" name="stack" value="256">
+          </form>
         </div>
       </div>
     </div>

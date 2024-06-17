@@ -1,4 +1,4 @@
-#!/home/mchristo/proj/groundhog/ghogenv/bin/python
+#!/home/radar/groundhog/ghogenv/bin/python
 
 # Groundhog Daemon
 # Manages GPS and radar
@@ -57,7 +57,7 @@ class GNSS:
         logging.info("GNSS initialized")
 
         # Find free filename
-        dataDir = "/home/mchristo/proj/groundhog/gnsslog/"
+        dataDir = "/home/radar/groundhog/data/gnss/"
         c = 0
         while os.path.isfile(dataDir + "log%d.ubx" % c):
             c += 1
@@ -115,6 +115,7 @@ class GNSS:
 
         logging.info("Found ZED-F9P GNSS")
         logging.info("Starting socat redirect")
+
         self.socat = subprocess.Popen(
             [
                 "/usr/bin/socat",
@@ -279,7 +280,7 @@ def main():
     root_logger = logging.getLogger()
     root_logger.setLevel("INFO")
     root_logger.addHandler(SystemdHandler())
-    logging.info("Starting groundhogd")
+    logging.info("Starting gnssd")
 
     gnss = GNSS()
 
