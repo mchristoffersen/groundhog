@@ -14,6 +14,7 @@ import posix
 import socket
 import select
 import subprocess
+import json
 
 import systemd.daemon
 import numpy as np
@@ -31,7 +32,7 @@ def main():
     dae2gui_path = "/tmp/dae2gui"
     rdr2dae_path = "/tmp/rdr2dae"
     rdr2gui_path = "/tmp/rdr2gui"
-    
+
     for path in [gui2dae_path, dae2gui_path, rdr2dae_path, rdr2gui_path]:
         try:
             os.unlink(path)
@@ -39,45 +40,78 @@ def main():
             if os.path.exists(path):
                 logging.error("Failed to delete fifo path: %s" % path)
                 sys.exit(1)
+        os.mkfifo(path)
 
-    gui2dae = posix.mkfifo(gui2dae_path)
-    dae2gui = posix.mkfifo(dae2gui_path)
-    rdr2dae = posix.mkfifo(rdr2dae_path)
-    rdr2gui = posix.mkfifo(rdr2gui_path)
-    
-    # Is the radar running 
+    # Is the radar running
     running = False
+
+    # Open 2dae pipes for reading
+    gui2dae_fd = os.open(gui2dae_path, os.O_RDONLY | os.O_NONBLOCK)
+    gui2dae = os.fdopen(gui2dae_fd)
+
+    # Open 2gui pipe for writing
+    # dae2gui = open(dae2gui_path, mode="w")
+    dae2gui = None
 
     while True:
         systemd.daemon.notify("WATCHDOG=1")
 
         # Check for message from GUI
-        with open(gui2dae_path, "r") as pipe:
-              msg = pipe.read()
-        
-        if(msg == "start"):
+        msg = gui2dae.readline()
+        print(msg)
+
+        if "start" in msg and not running:
+            if(dae2gui is None):
+            # Make command from json
+            params = json.loads(msg.replace("start", ""))
+
+            # Strip any non-digits from strings
+            for k, v in params.items():
+                params[k] = "".join(c for c in v if c.isdigit())
+
             # Find new filename
             base = "/home/radar/groundhog/data/"
 
             for i in range(10000):
-                name = base + "groundhog%04d" % i
-                if (not os.path.isfile(name + ".ghog")):
+                name = base + "groundhog%04d.ghog" % i
+                if not os.path.isfile(name):
                     break
-            if(i == 9999):
+            if i == 9999:
                 logging.error("Out of data file names")
                 sys.exit(1)
-            
 
-	    radar = subprocess.Popen(
-                [
-                    "/home/radar/groundhog/control/src/radar",
-                    "--file "$filename.ghog" --trigger 10000 --pretrig 8 --spt 512 --stack 256",
-                ]
+            args = "--file %s --trigger %s --pretrig %s --spt %s --stack %s" % (
+                name,
+                params["trigger"],
+                params["pretrig"],
+                params["spt"],
+                params["stack"],
             )
 
-	elif(msg == "stop"):
-	    pass
-	    # Stop radar
+            exe = "/home/radar/groundhog/control/src/radar"
+
+            dae2gui.write(cmd + " " + exe)
+
+            try:
+                radar = subprocess.Popen([exe, args])
+            except FileNotFoundError:
+                dae2gui.write(
+                    "Failed to start radar - could not locate executable %s" % exe
+                )
+                logging.error(
+                    "Failed to start radar - could not locate executable %s" % exe
+                )
+            running = True
+        elif "start" in msg and running:
+            dae2gui.write("Ignoring start command while radar is running.\n")
+            logging.info("Ignoring start command while radar is running.")
+        elif "stop" in msg and running:
+            dae2gui.write("Stopping radar")
+            logging.info("Stopping radar.")
+            radar.kill()
+        elif "stop" in msg and not running:
+            dae2gui.write("Ignoring stop command while radar is not running\n")
+            logging.info("Ignoring stop command while radar is not running.")
         time.sleep(1)
 
 

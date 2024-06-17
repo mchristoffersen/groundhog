@@ -67,18 +67,17 @@ $(document).ready(function () {
     var pretrig = $("#pretrig").val();
     var spt = $("#spt").val();
     var stack = $("#stack").val();
-  
-    $.post({
+    var data = JSON.stringify({"trigger": trigger, "pretrig": pretrig, "spt": spt, "stack": stack})
+    $.ajax({
       url: "/_start",
-      contentType: "application/json",
-      data: JSON.stringify({
-        trigger: trigger,
-        pretrig: pretrig,
-        spt: spt,
-        stack: stack
-      }),
-      success: function(data) {}
-    });
+      type: "POST",
+      contentType: "applicaton/json",
+      data: data,
+      success: function(response) {
+      },
+      error: function(xhr, status, error) {
+      },
+    })
   });
   
   // Stop button
@@ -86,9 +85,27 @@ $(document).ready(function () {
     $.post("/_stop", function (data) {});
   });
 
+  // Console updater
+  //function update_console() {
+  //  $.getJSON("/_get_console", {}, function (data) {
+  //    console.log(data.msg);
+  //  });
+  //  return false;
+  //}
+
+//  function update_console() {
+//    console.log("hello");
+//    $.getJSON("/_update_console", {}, function (data) {
+//      console.log(data.msg)
+//    });
+//    return false;
+//  }
+
+  //update_console();
   update_radar();
   update_gnss();
 
+  //var interval = setInterval(update_console, 1000);
   var interval = setInterval(update_radar, 1000);
   var interval = setInterval(update_gnss, 1000);
 

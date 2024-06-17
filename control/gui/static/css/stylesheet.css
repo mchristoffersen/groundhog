@@ -49,7 +49,7 @@ div.status {
 	left: 2%;
 	top: 61%;
 	position: absolute;
-	background: #AAAAAA;
+	background: #FFFFFF;
 	text-align: center;
 }
 
@@ -158,4 +158,13 @@ table td:nth-child(2) {
 
 form {
   font-size: 2em;
+}
+
+textarea {
+	height: 100%;
+	width: 100%;
+	position: relative;
+	border: 0.25em black solid;
+	border-radius: 0.5em;
+	resize: none;
 }

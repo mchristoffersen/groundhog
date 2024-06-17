@@ -45,19 +45,28 @@ def get_gnss():
 def get_radar():
     return flask.jsonify(ntrc="69", nbuf="420", prf="2000", adc="25e6")
 
+
 @app.route("/_start", methods=["POST"])
 def start():
-    data = flask.request.get_json()
+    data = flask.request.data
     with open("/tmp/gui2dae", mode="w") as fd:
-        fd.write("start," + data)
+        fd.write("start" + data.decode() + "\n")
     return "0"
-    
+
+
 @app.route("/_stop", methods=["POST"])
 def stop():
     with open("/tmp/gui2dae", mode="w") as fd:
-        fd.write("stop")
+        fd.write("stop" + "\n")
     return "0"
 
+
+@app.route("/_get_console")
+def get_console():
+    with open("/tmp/dae2gui", mode="r") as dae2gui:
+        msg = dae2gui.readline()
+        print("msg " + msg, file=sys.stdout)
+    return flask.jsonify(msg=msg)
 
 
 if __name__ == "__main__":
