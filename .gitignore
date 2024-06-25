@@ -1,5 +1,8 @@
-# Data files from radar
+# Data files from radar and assoc stuff
 data/
+*.h5
+*.ubx
+*.gpkg
 
 # Compiled radar binary
 control/src/radar
