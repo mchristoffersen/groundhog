@@ -8,6 +8,6 @@ Control code lives in the `control` directory. The `manual` directory contains t
 
 The processing software is set up as a Python library named `ghog` with a few command line tools. To install:
 ```
-pip install git@https://github.com/mchristoffersen/groundhog.git
+pip install git+https://github.com/mchristoffersen/groundhog.git
 ```
 [Link to documentation](https://mchristoffersen.github.io/groundhog/). See the `examples` directory for a usage examples.
