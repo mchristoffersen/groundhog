@@ -23,6 +23,13 @@ def cli():
         help="Digitizer file(s) (X.ghog) to convert to HDF5. Should be in same directory as acompanying GPS files (X.txt).",
         nargs="+",
     )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        help="Directory to write Groundhog HDF5 files to (default = ./).",
+        default=".",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     return parser
 
@@ -89,7 +96,7 @@ def parseTraces(data, spt, file):
     return rx, times
 
 
-def buildH5(header, rx, gps, file):
+def buildH5(header, rx, gps, file, dir):
     try:
         if file.endswith(".ghog"):
             fname = os.path.basename(file).replace(".ghog", "")
@@ -104,7 +111,7 @@ def buildH5(header, rx, gps, file):
             time0 = time0.replace(":", "")
         else:
             time0 = "unk"
-        outfile = os.path.dirname(file) + "/" + time0 + "_" + fname + ".h5"
+        outfile = dir + time0 + "_" + fname + ".h5"
 
         fd = h5py.File(outfile, "w")
 
@@ -254,7 +261,7 @@ def parseGPS(file):
     return {"lons": lons, "lats": lats, "hgts": hgts, "times": times}
 
 
-def interpFix(tTrace, fix):
+def interpFix(tTrace, fix, file):
     # Interpolate GPS fix to trace times
 
     traceFix = {}
@@ -263,7 +270,7 @@ def interpFix(tTrace, fix):
         tFix, vals = zip(*v)
         epoch = tFix[0]
         if (tFix[0] > tTrace[0] or tFix[-1] < tTrace[-1]) and not warn:
-            print("GPS times do not entirely contain data file times")
+            print("%s - GPS times do not entirely contain data file times" % file)
             warn = 1
 
         tTrace_sse = ((tTrace - epoch).astype("timedelta64[us]")).astype(
@@ -346,7 +353,7 @@ def main():
                     fix = None
                     gps = None
                 else:
-                    fix = interpFix(tTrace, fix)
+                    fix = interpFix(tTrace, fix, file)
 
             # get fix to right datattype for hdf5
             if fix is not None:
@@ -368,7 +375,7 @@ def main():
             if args.verbose:
                 print("Saving ", outfile)
 
-            if buildH5(header, rx, gps, file) == -1:
+            if buildH5(header, rx, gps, file, args.output) == -1:
                 print("%s - Failed to build HDF5." % file)
                 continue
 
