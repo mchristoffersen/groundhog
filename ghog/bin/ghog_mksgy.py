@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+# Generate SEG-Y files from raw Groundhog files
 import struct
 import argparse
 import os

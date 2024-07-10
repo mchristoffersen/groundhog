@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+# Generate Groundhog HDF5 files from raw Groundhog files
 import struct
 import argparse
 import os
@@ -21,8 +20,8 @@ def cli():
     parser.add_argument(
         "files", type=str, help="Digitizer file(s) to convert to HDF5", nargs="+"
     )
-    args = parser.parse_args()
-    return args
+    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    return parser
 
 
 def parseHeader(data, file):
@@ -89,7 +88,13 @@ def parseTraces(data, spt, file):
 
 def buildH5(header, rx, gps, file):
     try:
-        fname = os.path.basename(file).replace(".ghog", "")
+        if file.endswith(".ghog"):
+            fname = os.path.basename(file).replace(".ghog", "")
+        elif file.endswith(".dat"):
+            fname = os.path.basename(file).replace(".dat", "")
+        else:
+            print("%s - Unrecognized data file extension. Skipping conversion")
+
         if gps is not None:
             time0 = gps["utc"][0][:19].decode()
             time0 = time0.replace("-", "")
@@ -97,7 +102,6 @@ def buildH5(header, rx, gps, file):
         else:
             time0 = "unk"
         outfile = os.path.dirname(file) + "/" + time0 + "_" + fname + ".h5"
-        print("Saving ", outfile)
 
         fd = h5py.File(outfile, "w")
 
@@ -199,7 +203,7 @@ def parseGPS(file):
 
             continue
 
-    if(times == [] and lats == [] and lons == [] and hgts == []):
+    if times == [] and lats == [] and lons == [] and hgts == []:
         # Bail if no GPS info
         print("No gps information found")
         return -1
@@ -220,7 +224,7 @@ def parseGPS(file):
     except ValueError:
         # Handling weird gulkana data
         fid = int(file[-8:-4])
-        if(fid < 57):
+        if fid < 57:
             print("Missing date information. Hardcoding to 2024-04-19")
             dates = [np.datetime64("2024-04-19")]
         else:
@@ -280,11 +284,12 @@ def interpFix(tTrace, fix):
 
 
 def main():
-    args = cli()
+    args = cli().parse_args()
 
     for file in args.files:
         try:
-            print("Converting " + file)
+            if args.verbose:
+                print("Converting " + file)
             try:
                 fd = open(file, "rb")
             except Exception as e:
@@ -313,7 +318,13 @@ def main():
                 print("%s - Failed to parse file data segment" % file)
                 continue
 
-            gpsFile = file.replace(".ghog", ".txt")
+            if file.endswith(".ghog"):
+                gpsFile = file.replace(".ghog", ".txt")
+            elif file.endswith(".dat"):
+                gpsFile = file.replace(".dat", ".txt")
+            else:
+                print("%s - Unrecognized data file extension. Skipping conversion")
+
             if not os.path.isfile(gpsFile):
                 print(
                     "%s - No GPS file found. No GPS information will be included in HDF5."
@@ -324,7 +335,7 @@ def main():
             else:
                 fix = parseGPS(gpsFile)
 
-                if fix == -1:
+                if fix == (-1, -1):
                     print(
                         "%s - Failed to parse GPS file. No GPS information will be included in HDF5."
                         % file
@@ -351,11 +362,12 @@ def main():
                     )
                 gps = np.array(gps, dtype=gps_t)
 
+            if args.verbose:
+                print("Saving ", outfile)
+
             if buildH5(header, rx, gps, file) == -1:
                 print("%s - Failed to build HDF5." % file)
                 continue
-
-            print()
 
         except Exception as e:
             print(e)
@@ -365,4 +377,5 @@ def main():
     return 0
 
 
-main()
+if __name__ == "__main__":
+    main()

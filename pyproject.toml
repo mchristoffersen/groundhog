@@ -1,0 +1,38 @@
+[build-system]
+requires = [
+    "setuptools>=61.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghog"
+version = "0.0.1"
+description = "Processor and utilities the Groundhog ground penetrating radar system."
+readme = "README.md"
+requires-python = ">=3.6"
+license = {file = "LICENSE.txt"}
+authors = [
+    {name = "Michael Christoffersen"},
+    {email = "mchristo28@gmail.com"}
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "h5py",
+    "pyproj",
+    "tqdm",
+]
+
+[project.urls]
+documentation = "https://github.com/mchristoffersen/ghog/wiki"
+repository = "https://github.com/mchristoffersen/ghog"
+
+[project.scripts]
+ghog_mkh5 = "ghog.bin.ghog_mkh5:main"
+ghog_mkgpkg = "ghog.bin.ghog_mkgpkg:main"
+ghog_mkqlook = "ghog.bin.ghog_mkqlook:main"
+
+[tool.setuptools]
+packages = ["ghog"]

@@ -1,5 +1,4 @@
-#!/usr/bin/python3
-
+# Make quicklook images from Groundhog HDF5 files
 import argparse
 
 import matplotlib.pyplot as plt
@@ -22,12 +21,11 @@ def cli():
         nargs="+",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    args = parser.parse_args()
-    return args
+    return parser
 
 
 def main():
-    args = cli()
+    args = cli().parse_args()
 
     for file in args.files:
         try:
@@ -117,4 +115,5 @@ def main():
             continue
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -73,7 +73,9 @@ def main():
             ) / 1e6
             tppp_sse = (
                 (df["datetime"].to_numpy() - epoch).astype("timedelta64[us]")
-            ).astype(np.float64) / 1e6 - 18 # leap seconds... should do this better
+            ).astype(
+                np.float64
+            ) / 1e6 - 18  # leap seconds... should do this better
 
             loni = np.interp(th5_sse, tppp_sse, df["lon"])
             lati = np.interp(th5_sse, tppp_sse, df["lat"])
@@ -95,9 +97,7 @@ def main():
             ppp = np.array(ppp, dtype=ppp_t)
 
             drv = fd.require_group("drv")
-            ppp0 = drv.require_dataset(
-                "ppp0", shape=ppp.shape, dtype=ppp.dtype
-            )
+            ppp0 = drv.require_dataset("ppp0", shape=ppp.shape, dtype=ppp.dtype)
             ppp0[:] = ppp
             ppp0.attrs["desc"] = "CSRS PPP solution"
 

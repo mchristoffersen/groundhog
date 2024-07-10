@@ -22,7 +22,7 @@ def h52rsf(file):
     with h5py.File(file, mode="r") as fd:
         dx = int(fd["/restack/rx0"].attrs["stack_interval"])
         pt = fd["/raw/rx0"].attrs["pre_trig"]
-        #rx0 = fd["/restack/rx0"][pt:,:]
+        #rx0 = fd["/restack/rx0"][pt:,:]  # should probably deal with pre-trigger samples
         rx0 = fd["/restack/rx0"][:]
         dt = 1.0/fd["/raw/rx0"].attrs["fs"]
 
@@ -54,7 +54,7 @@ def h52rsf(file):
         fd.write("\n\f\f\x04") # nl ff ff eot
 
         fd.close()
-        
+
         # Write data
         fd = open(rsf, mode="ab")
         rx0pd.T.astype(np.float32).tofile(fd)
@@ -67,5 +67,5 @@ def main():
     for file in args.files:
         print("Converting: %s" % file)
         h52rsf(file)
-        
+
 main()

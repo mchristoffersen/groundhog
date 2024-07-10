@@ -19,11 +19,11 @@ def cli():
         help="Output Geopackage file (default = ./trajectories.gpkg)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
-    return parser.parse_args()
+    return parser
 
 
 def main():
-    args = cli()
+    args = cli().parse_args()
 
     rows = []
     for file in args.files:
@@ -57,4 +57,5 @@ def main():
     gdf.to_file(args.output, layer="groundhog", driver="GPKG")
 
 
-main()
+if __name__ == "__main__":
+    main()
