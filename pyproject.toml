@@ -35,4 +35,4 @@ ghog_mkgpkg = "ghog.bin.ghog_mkgpkg:main"
 ghog_mkqlook = "ghog.bin.ghog_mkqlook:main"
 
 [tool.setuptools]
-packages = ["ghog"]
+packages = ["ghog", "ghog.bin"]

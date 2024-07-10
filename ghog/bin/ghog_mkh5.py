@@ -1,24 +1,27 @@
 # Generate Groundhog HDF5 files from raw Groundhog files
-import struct
 import argparse
-import os
-import time
 import calendar
+import glob
+import os
+import struct
+import time
 import traceback
 
-import numpy as np
 import h5py
-import glob
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def cli():
     # Command line interface
     parser = argparse.ArgumentParser(
-        description="Convert Groundhog digitizer files to HDF5"
+        description="Convert Groundhog digitizer files to HDF5."
     )
     parser.add_argument(
-        "files", type=str, help="Digitizer file(s) to convert to HDF5", nargs="+"
+        "files",
+        type=str,
+        help="Digitizer file(s) (X.ghog) to convert to HDF5. Should be in same directory as acompanying GPS files (X.txt).",
+        nargs="+",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     return parser
