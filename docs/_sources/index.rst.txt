@@ -14,7 +14,7 @@ Nominal Workflow
 
 The usual workflow for processing and interpreting raw Groundhog data looks like this:
 
-   1. Convert raw digitizer files to HDF5 with the ``git_mkh5`` command line tool.
+   1. Convert raw digitizer files to HDF5 with the ``ghog_mkh5`` command line tool.
 
       .. code-block:: bash
 
@@ -49,6 +49,11 @@ The usual workflow for processing and interpreting raw Groundhog data looks like
         ghog.save(file, data, group="restack")
 
    3. Use interpretation software, such as `RAGU <https://github.com/btobers/RAGU>`_, to pick reflectors in the data.
+
+There are two additional command line tools:
+
+   * ``ghog_mkgpkg`` generates a `Geopackage <https://www.geopackage.org/>`_ containing the position information of all of the HDF5 files it is directed to. The positionin information in each file is used to create a line object, and each line has the associated HDF5 file name as an attribute.
+   * ``ghog_mkqlook`` generates a figure from each HDF5 file it is directed to, saving each figure in the same directory as the accompanying HDF5 file. 
 
 Python API
 ----------
