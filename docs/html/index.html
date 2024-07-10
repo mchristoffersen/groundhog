@@ -267,6 +267,8 @@ document.write(`
                   
   <section id="groundhog-gpr-processor-documentation">
 <h1>Groundhog GPR Processor Documentation<a class="headerlink" href="#groundhog-gpr-processor-documentation" title="Link to this heading">#</a></h1>
+<section id="python-api">
+<h2>Python API<a class="headerlink" href="#python-api" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="#ghog.load" title="ghog.load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.load</span></code></a>(file[, group])</p></td>
@@ -287,11 +289,14 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="#ghog.stolt" title="ghog.stolt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.stolt</span></code></a>(data[, pmig, ntaper, px, pt])</p></td>
 <td><p>Perform Stolt migration.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ghog.figure" title="ghog.figure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.figure</span></code></a>(data[, file, xunit, yunit, ...])</p></td>
+<td><p>Generate radargram figure.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
 <section id="hdf5-i-o">
-<h2>HDF5 I/O<a class="headerlink" href="#hdf5-i-o" title="Link to this heading">#</a></h2>
+<h3>HDF5 I/O<a class="headerlink" href="#hdf5-i-o" title="Link to this heading">#</a></h3>
 <dl class="py function">
 <dt class="sig sig-object py" id="ghog.load">
 <span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'raw'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.load" title="Link to this definition">#</a></dt>
@@ -328,7 +333,7 @@ positions and times (gps), and data attributes (attrs).</p>
 
 </section>
 <section id="processing">
-<h2>Processing<a class="headerlink" href="#processing" title="Link to this heading">#</a></h2>
+<h3>Processing<a class="headerlink" href="#processing" title="Link to this heading">#</a></h3>
 <dl class="py function">
 <dt class="sig sig-object py" id="ghog.filt">
 <span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">filt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">passband</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.filt" title="Link to this definition">#</a></dt>
@@ -351,13 +356,6 @@ create a low pass or high pass filter.</p></li>
 positions and times (gps), and data attributes (attrs).</p>
 </dd>
 </dl>
-<p class="rubric">Example</p>
-<p>Examples can be given using either the <code class="docutils literal notranslate"><span class="pre">Example</span></code> or <code class="docutils literal notranslate"><span class="pre">Examples</span></code>
-sections. Sections support any reStructuredText formatting, including
-literal blocks:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python example_google.py
-</pre></div>
-</div>
 </dd></dl>
 
 <dl class="py function">
@@ -422,6 +420,34 @@ positions and times (gps), and data attributes (attrs)</p>
 </dl>
 </dd></dl>
 
+</section>
+<section id="visualization">
+<h3>Visualization<a class="headerlink" href="#visualization" title="Link to this heading">#</a></h3>
+<dl class="py function">
+<dt class="sig sig-object py" id="ghog.figure">
+<span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'radargram.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'distance'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'time'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pdepth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">4)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pclip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'seismic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.figure" title="Link to this definition">#</a></dt>
+<dd><p>Generate radargram figure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – Groundhog data dictionary (rx, gps, attrs).</p></li>
+<li><p><strong>file</strong> – File name to save figure at. To not save an image
+use filename=None (default = “radargram.png”).</p></li>
+<li><p><strong>xunit</strong> – Unit for x axis, valid options are [“index”, “distance”] (default = “distance”).</p></li>
+<li><p><strong>yunit</strong> – Unit for y axis, valid options are [“index”, “time”, “depth”] if “depth”
+is chosen the pdepth argument is used to convert time to depth (default = “time”).</p></li>
+<li><p><strong>pdepth</strong> – Relative permittivity for y axis depth conversion (default = 3.15).</p></li>
+<li><p><strong>figsize</strong> – Figure dimension (x, y) in inches (default = (8, 4)).</p></li>
+<li><p><strong>pclip</strong> – Linear scaling clip percent, between 0 and 50 (default = 1).</p></li>
+<li><p><strong>tpow</strong> – Power of time exponential gain (default = 0 : no gain).</p></li>
+<li><p><strong>cmap</strong> – Matplotlib colormap to use (default = “seismic”).</p></li>
+<li><p><strong>show</strong> – Show figure in desktop window (default = False).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
 </section>
 <section id="command-line-tools">
 <h2>Command Line Tools<a class="headerlink" href="#command-line-tools" title="Link to this heading">#</a></h2>
@@ -535,16 +561,23 @@ positions and times (gps), and data attributes (attrs)</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hdf5-i-o">HDF5 I/O</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.save"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-api">Python API</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#hdf5-i-o">HDF5 I/O</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.save"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#processing">Processing</a><ul class="visible nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.filt"><code class="docutils literal notranslate"><span class="pre">filt()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.nmo"><code class="docutils literal notranslate"><span class="pre">nmo()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.restack"><code class="docutils literal notranslate"><span class="pre">restack()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.stolt"><code class="docutils literal notranslate"><span class="pre">stolt()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#processing">Processing</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.filt"><code class="docutils literal notranslate"><span class="pre">filt()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.nmo"><code class="docutils literal notranslate"><span class="pre">nmo()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.restack"><code class="docutils literal notranslate"><span class="pre">restack()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.stolt"><code class="docutils literal notranslate"><span class="pre">stolt()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.figure"><code class="docutils literal notranslate"><span class="pre">figure()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#command-line-tools">Command Line Tools</a><ul class="visible nav section-nav flex-column">

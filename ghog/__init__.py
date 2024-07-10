@@ -8,3 +8,5 @@ from .restack import restack
 from .filt import filt
 
 from .stolt import stolt
+
+from .figure import figure

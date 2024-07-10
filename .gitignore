@@ -20,3 +20,8 @@ docs/*.pdf
 
 # Python stuff
 __pycache__/
+dist/
+ghog.egg-info/
+
+# Documentation
+sphinx/build

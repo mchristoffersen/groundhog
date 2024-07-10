@@ -21,9 +21,9 @@ def nmo(data, sep, pnmo=3.15):
 
     rx = np.copy(data["rx"])
     attrs = dict(data["attrs"])
-    
+
     if pnmo < 1:
-        raise ValueError("vnmo cannot be less than one.")
+        raise ValueError("pnmo cannot be less than one.")
 
     if sep < 0:
         raise ValueError("sep cannot be negative.")
@@ -55,7 +55,7 @@ def nmo(data, sep, pnmo=3.15):
     attrs["pre_trig"] = 0
 
     ## NMO correction
-    vnmo = ghog.constants.c/np.sqrt(pnmo)
+    vnmo = ghog.constants.c / np.sqrt(pnmo)
     rxnmo = np.zeros_like(rx)
     t0 = np.arange(rx.shape[0]) * dt
     t = np.sqrt(t0**2 + sep**2 / vnmo**2)

@@ -22,13 +22,6 @@ def filt(data, passband, axis=0, order=4):
     Returns:
         Dictionary containing the filtered 2D data array (rx), numpy structured array with per-column
         positions and times (gps), and data attributes (attrs).
-
-    Example:
-        Examples can be given using either the ``Example`` or ``Examples``
-        sections. Sections support any reStructuredText formatting, including
-        literal blocks::
-
-            $ python example_google.py
     """
     ghog.checks.check_data(data)
 
