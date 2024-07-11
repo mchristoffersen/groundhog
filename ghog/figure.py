@@ -103,7 +103,6 @@ def figure(
         ylabel = "Depth (m)"
 
     # Apply gain
-    gain = np.arange
     t = (np.arange(rx.shape[0]) - attrs["pre_trig"]) / attrs["fs"]
     gain = t**tpow
     gain = gain / np.max(gain)

@@ -344,7 +344,10 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="#ghog.stolt" title="ghog.stolt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.stolt</span></code></a>(data[, pmig, ntaper, px, pt])</p></td>
 <td><p>Perform Stolt migration.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#ghog.figure" title="ghog.figure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.figure</span></code></a>(data[, file, xunit, yunit, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ghog.gain" title="ghog.gain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.gain</span></code></a>(data[, tpow])</p></td>
+<td><p>Apply gain to traces.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ghog.figure" title="ghog.figure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.figure</span></code></a>(data[, file, xunit, yunit, ...])</p></td>
 <td><p>Generate radargram figure.</p></td>
 </tr>
 </tbody>
@@ -426,7 +429,7 @@ positions and times (gps), and data attributes (attrs).</p>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Dictionary containing the NMO corrected2D data array (rx), numpy structured array with
+<dd class="field-even"><p>Dictionary containing the NMO corrected 2D data array (rx), numpy structured array with
 per-column positions and times (gps), and data attributes (attrs).</p>
 </dd>
 </dl>
@@ -475,6 +478,24 @@ positions and times (gps), and data attributes (attrs)</p>
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="ghog.gain">
+<span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">gain</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.gain" title="Link to this definition">#</a></dt>
+<dd><p>Apply gain to traces.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – Groundhog data dictionary (rx, gps, attrs).</p></li>
+<li><p><strong>tpow</strong> – Power of time gain to apply to each trace (default = 1 : linear gain).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing the gained 2D data array (rx), numpy structured array with
+per-column positions and times (gps), and data attributes (attrs).</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="visualization">
 <h3>Visualization<a class="headerlink" href="#visualization" title="Link to this heading">#</a></h3>
@@ -510,7 +531,7 @@ is chosen the pdepth argument is used to convert time to depth (default = “tim
 <h3>ghog_mkh5<a class="headerlink" href="#ghog-mkh5" title="Link to this heading">#</a></h3>
 <p><p>Convert Groundhog digitizer files to HDF5.</p>
 </p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">ghog_mkh5</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="n">files</span> <span class="p">[</span><span class="n">files</span> <span class="o">...</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">ghog_mkh5</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">o</span> <span class="n">OUTPUT</span><span class="p">]</span> <span class="p">[</span><span class="o">-</span><span class="n">v</span><span class="p">]</span> <span class="n">files</span> <span class="p">[</span><span class="n">files</span> <span class="o">...</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="positional-arguments">
@@ -524,6 +545,10 @@ is chosen the pdepth argument is used to convert time to depth (default = “tim
 <section id="named-arguments">
 <h4>Named Arguments<a class="headerlink" href="#named-arguments" title="Link to this heading">#</a></h4>
 <dl class="option-list">
+<dt><kbd>-o, --output</kbd></dt>
+<dd><p>Directory to write Groundhog HDF5 files to (default = ./).</p>
+<p>Default: “.”</p>
+</dd>
 <dt><kbd>-v, --verbose</kbd></dt>
 <dd><p>Verbose output</p>
 <p>Default: False</p>
@@ -637,6 +662,7 @@ is chosen the pdepth argument is used to convert time to depth (default = “tim
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.nmo"><code class="docutils literal notranslate"><span class="pre">nmo()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.restack"><code class="docutils literal notranslate"><span class="pre">restack()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.stolt"><code class="docutils literal notranslate"><span class="pre">stolt()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.gain"><code class="docutils literal notranslate"><span class="pre">gain()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a><ul class="nav section-nav flex-column">

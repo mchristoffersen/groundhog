@@ -65,6 +65,7 @@ Python API
    ghog.nmo
    ghog.restack
    ghog.stolt
+   ghog.gain
    ghog.figure
 
 HDF5 I/O
@@ -78,6 +79,7 @@ Processing
 .. autofunction:: ghog.nmo 
 .. autofunction:: ghog.restack 
 .. autofunction:: ghog.stolt 
+.. autofunction:: ghog.gain
 
 Visualization
 ^^^^^^^^^^^^^

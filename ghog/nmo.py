@@ -14,7 +14,7 @@ def nmo(data, sep, pnmo=3.15):
         pnmo: Move out relative permittivity (default = 3.15).
 
     Returns:
-        Dictionary containing the NMO corrected2D data array (rx), numpy structured array with
+        Dictionary containing the NMO corrected 2D data array (rx), numpy structured array with
         per-column positions and times (gps), and data attributes (attrs).
     """
     ghog.checks.check_data(data)

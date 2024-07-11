@@ -96,24 +96,16 @@ def parseTraces(data, spt, file):
     return rx, times
 
 
-def buildH5(header, rx, gps, file, dir):
+def buildH5(header, rx, gps, file):
     try:
-        if file.endswith(".ghog"):
-            fname = os.path.basename(file).replace(".ghog", "")
-        elif file.endswith(".dat"):
-            fname = os.path.basename(file).replace(".dat", "")
-        else:
-            print("%s - Unrecognized data file extension. Skipping conversion")
-
         if gps is not None:
             time0 = gps["utc"][0][:19].decode()
             time0 = time0.replace("-", "")
             time0 = time0.replace(":", "")
         else:
             time0 = "unk"
-        outfile = dir + time0 + "_" + fname + ".h5"
 
-        fd = h5py.File(outfile, "w")
+        fd = h5py.File(file, "w")
 
         raw = fd.create_group("raw")
         rx0 = raw.create_dataset("rx0", data=rx)
@@ -228,11 +220,14 @@ def parseGPS(file):
             tgps[i] += 86400
 
     # Stitch dates and times
+    _, dates = zip(*dates)
+    dates = list(dates)
+    cmt = """
     try:
         _, dates = zip(*dates)
         dates = list(dates)
     except ValueError:
-        # Handling weird gulkana data
+        # Handling weird gulkana data - should move this to oneoff
         fid = int(file[-8:-4])
         if fid < 57:
             print("Missing date information. Hardcoding to 2024-04-19")
@@ -241,10 +236,11 @@ def parseGPS(file):
             print("Missing date information. Hardcoding to 2024-04-20")
             dates = [np.datetime64("2024-04-20")]
 
-    # Handling other ruth issue
+    # Handling other ruth issue - should move this to oneoff somehow
     if dates[0] > np.datetime64("2039"):
         print("Bad GPS week, removing 1024 weeks")
         dates[0] -= np.timedelta64(1024, "W")
+    """
 
     for i in range(len(tgps)):
         tgps[i] = dates[0] + np.timedelta64(int(tgps[i] * 1e3), "ms")
@@ -295,6 +291,12 @@ def interpFix(tTrace, fix, file):
 
 def main():
     args = cli().parse_args()
+
+    if args.output[-1] != "/":
+        args.output += "/"
+
+    if not os.path.isdir(args.output):
+        raise ValueError("%s is not a directory." % args.output)
 
     for file in args.files:
         try:
@@ -372,10 +374,27 @@ def main():
                     )
                 gps = np.array(gps, dtype=gps_t)
 
+            # Making output filename
+            if file.endswith(".ghog"):
+                fname = os.path.basename(file).replace(".ghog", "")
+            elif file.endswith(".dat"):
+                fname = os.path.basename(file).replace(".dat", "")
+            else:
+                print("%s - Unrecognized data file extension. Skipping conversion")
+
+            if gps is not None:
+                time0 = gps["utc"][0][:19].decode()
+                time0 = time0.replace("-", "")
+                time0 = time0.replace(":", "")
+            else:
+                time0 = "unk"
+
+            outfile = args.output + time0 + "_" + fname + ".h5"
+
             if args.verbose:
                 print("Saving ", outfile)
 
-            if buildH5(header, rx, gps, file, args.output) == -1:
+            if buildH5(header, rx, gps, outfile) == -1:
                 print("%s - Failed to build HDF5." % file)
                 continue
 
