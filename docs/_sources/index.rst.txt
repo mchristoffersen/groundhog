@@ -25,6 +25,8 @@ The usual workflow for processing and interpreting raw Groundhog data looks like
       .. code-block:: python
 
         ## Example processing script
+        import ghog
+
         file = "/your/hdf5/file.h5"
 
         # Load data
