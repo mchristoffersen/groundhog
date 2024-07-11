@@ -10,4 +10,4 @@ The processing software is set up as a Python library named `ghog` with a few co
 ```
 pip install git+https://github.com/mchristoffersen/groundhog.git
 ```
-[Link to documentation](https://mchristoffersen.github.io/groundhog/). See the `examples` directory for a usage examples.
+[Link to documentation](https://mchristoffersen.github.io/groundhog/). See the `example` directory for a usage examples.
