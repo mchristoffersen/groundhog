@@ -25,6 +25,8 @@ The usual workflow for processing and interpreting raw Groundhog data looks like
       .. code-block:: python
 
         ## Example processing script
+        import ghog
+
         file = "/your/hdf5/file.h5"
 
         # Load data
@@ -66,6 +68,7 @@ Python API
    ghog.restack
    ghog.stolt
    ghog.gain
+   ghog.mute
    ghog.figure
 
 HDF5 I/O
@@ -80,6 +83,7 @@ Processing
 .. autofunction:: ghog.restack 
 .. autofunction:: ghog.stolt 
 .. autofunction:: ghog.gain
+.. autofunction:: ghog.mute
 
 Visualization
 ^^^^^^^^^^^^^

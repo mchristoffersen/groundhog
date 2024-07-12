@@ -12,3 +12,5 @@ from .stolt import stolt
 from .figure import figure
 
 from .gain import gain
+
+from .mute import mute

@@ -6,7 +6,7 @@ def check_data(data):
     missing_keys = []
     for key in expected_keys:
         if key not in data.keys():
-            missing_keys.append(keys)
+            missing_keys.append(key)
 
     if len(missing_keys) > 0:
         raise ValueError("Missing expected entries in data: %s" % (missing_keys))
@@ -36,7 +36,7 @@ def check_attrs(attrs):
     missing_keys = []
     for key in expected_keys:
         if key not in attrs.keys():
-            missing_keys.append(keys)
+            missing_keys.append(key)
 
     if len(missing_keys) > 0:
         raise ValueError("Missing expected entries in attrs: %s" % (missing_keys))

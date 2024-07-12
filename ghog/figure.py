@@ -12,6 +12,7 @@ def figure(
     file="radargram.png",
     xunit="distance",
     yunit="time",
+    title=None,
     pdepth=3.15,
     figsize=(8, 4),
     pclip=1,
@@ -28,6 +29,7 @@ def figure(
         xunit: Unit for x axis, valid options are ["index", "distance"] (default = "distance").
         yunit: Unit for y axis, valid options are ["index", "time", "depth"] if "depth"
             is chosen the pdepth argument is used to convert time to depth (default = "time").
+        title: Title for the figure (default = None).
         pdepth: Relative permittivity for y axis depth conversion (default = 3.15).
         figsize: Figure dimension (x, y) in inches (default = (8, 4)).
         pclip: Linear scaling clip percent, between 0 and 50 (default = 1).
@@ -37,8 +39,8 @@ def figure(
     """
     ghog.checks.check_data(data)
 
-    if type(file) is not str:
-        raise TypeError("file must be a string.")
+    if type(file) is not str and file is not None:
+        raise TypeError("file must be a string or None.")
 
     legal_xunit = ["index", "distance"]
     if xunit not in legal_xunit:
@@ -54,8 +56,11 @@ def figure(
             % (yunit, legal_yunit)
         )
 
+    if type(title) != str:
+        raise TypeError("title must be a string.")
+
     if type(figsize) != tuple and type(figsize) != list:
-        raise TypeError("figsize must be tuple or list")
+        raise TypeError("figsize must be tuple or list.")
 
     if len(figsize) != 2:
         raise ValueError("Length of figsize must be 2.")
@@ -120,6 +125,9 @@ def figure(
     )
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
+
+    if(title is not None):
+        plt.title(title)
 
     if file is not None:
         fig.savefig(file, bbox_inches="tight", dpi=300)

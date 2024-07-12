@@ -349,7 +349,10 @@ document.write(`
 <tr class="row-odd"><td><p><a class="reference internal" href="#ghog.gain" title="ghog.gain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.gain</span></code></a>(data[, tpow])</p></td>
 <td><p>Apply gain to traces.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#ghog.figure" title="ghog.figure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.figure</span></code></a>(data[, file, xunit, yunit, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#ghog.mute" title="ghog.mute"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.mute</span></code></a>(data, indices[, axis])</p></td>
+<td><p>Apply a mute to rows or columns of the data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ghog.figure" title="ghog.figure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ghog.figure</span></code></a>(data[, file, xunit, yunit, ...])</p></td>
 <td><p>Generate radargram figure.</p></td>
 </tr>
 </tbody>
@@ -498,12 +501,31 @@ per-column positions and times (gps), and data attributes (attrs).</p>
 </dl>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="ghog.mute">
+<span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">mute</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.mute" title="Link to this definition">#</a></dt>
+<dd><p>Apply a mute to rows or columns of the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – Groundhog data dictionary (rx, gps, attrs).</p></li>
+<li><p><strong>indices</strong> – Indices of the rows or columns to mute.</p></li>
+<li><p><strong>axis</strong> – Axis on which to apply the mute (default = 0 : mute columns).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary containing the muted 2D data array (rx), numpy structured array with
+per-column positions and times (gps), and data attributes (attrs).</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 <section id="visualization">
 <h3>Visualization<a class="headerlink" href="#visualization" title="Link to this heading">#</a></h3>
 <dl class="py function">
 <dt class="sig sig-object py" id="ghog.figure">
-<span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'radargram.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'distance'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'time'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pdepth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">4)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pclip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'seismic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.figure" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">ghog.</span></span><span class="sig-name descname"><span class="pre">figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'radargram.png'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'distance'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yunit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'time'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pdepth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">figsize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(8,</span> <span class="pre">4)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pclip</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tpow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'seismic'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#ghog.figure" title="Link to this definition">#</a></dt>
 <dd><p>Generate radargram figure.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -514,6 +536,7 @@ use filename=None (default = “radargram.png”).</p></li>
 <li><p><strong>xunit</strong> – Unit for x axis, valid options are [“index”, “distance”] (default = “distance”).</p></li>
 <li><p><strong>yunit</strong> – Unit for y axis, valid options are [“index”, “time”, “depth”] if “depth”
 is chosen the pdepth argument is used to convert time to depth (default = “time”).</p></li>
+<li><p><strong>title</strong> – Title for the figure (default = None).</p></li>
 <li><p><strong>pdepth</strong> – Relative permittivity for y axis depth conversion (default = 3.15).</p></li>
 <li><p><strong>figsize</strong> – Figure dimension (x, y) in inches (default = (8, 4)).</p></li>
 <li><p><strong>pclip</strong> – Linear scaling clip percent, between 0 and 50 (default = 1).</p></li>
@@ -665,6 +688,7 @@ is chosen the pdepth argument is used to convert time to depth (default = “tim
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.restack"><code class="docutils literal notranslate"><span class="pre">restack()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.stolt"><code class="docutils literal notranslate"><span class="pre">stolt()</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.gain"><code class="docutils literal notranslate"><span class="pre">gain()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#ghog.mute"><code class="docutils literal notranslate"><span class="pre">mute()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#visualization">Visualization</a><ul class="nav section-nav flex-column">

@@ -1,6 +1,7 @@
 # Restack traces to constant distance intervals
 import numpy as np
 import pyproj
+import matplotlib.pyplot as plt
 
 import ghog.checks
 
@@ -53,17 +54,19 @@ def restack(data, interval, dcut=0):
 
     time = np.array(list(map(np.datetime64, gps["utc"])))
     epoch = time[0]
-    time_sse = time - epoch
+    time_sse = (time - epoch).astype(np.int64)
+    
+    # Generate restacked coordinates and times
+    dist_restack = np.arange(0, np.sum(steps), interval)
 
+    for col in ["lon", "lat", "hgt"]:
+        gps_rstk[col] = np.interp(dist_restack, dist, gps[col])
+    gps_rstk["utc"] = np.datetime_as_string(epoch + np.interp(dist_restack, dist, time_sse).astype('<m8[us]'))
+    
+    # Restack data
     for i in range(nrstk):
         mask = np.logical_and(dist >= interval * i, dist < interval * (i + 1))
         rx_rstk[:, i] = np.mean(rx[:, mask], axis=1)
-        gps_rstk[i] = (
-            np.mean(gps["lon"][mask]),
-            np.mean(gps["lat"][mask]),
-            np.mean(gps["hgt"][mask]),
-            np.datetime_as_string(epoch + np.mean(time_sse[mask])),
-        )
 
     attrs["stack_interval"] = interval
 
