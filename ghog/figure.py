@@ -13,6 +13,8 @@ def figure(
     xunit="distance",
     yunit="time",
     title=None,
+    xlabel=None,
+    ylabel=None,
     pdepth=3.15,
     figsize=(8, 4),
     pclip=1,
@@ -82,30 +84,30 @@ def figure(
     xmin = 0
     if xunit == "index":
         xmax = rx.shape[1]
-        xlabel = "Trace index"
+        xlabel = xlabel or "Trace index"
     elif xunit == "distance":
         xform = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:4978")
         x, y, z = xform.transform(gps["lat"], gps["lon"], gps["hgt"])
         steps = np.sqrt(np.diff(x) ** 2 + np.diff(y) ** 2 + np.diff(z) ** 2)
         xmax = np.sum(steps)
-        xlabel = "Distance along profile (m)"
+        xlabel = xlabel or "Distance along profile (m)"
 
     # Set up y extent
     if yunit == "index":
         ymin = 0
         ymax = rx.shape[0]
-        ylabel = "Sample index"
+        ylabel = ylabel or "Sample index"
     elif yunit == "time":
         t = (np.arange(rx.shape[0]) - attrs["pre_trig"]) / attrs["fs"]
         ymin = np.min(t) * 1e6
         ymax = np.max(t) * 1e6
-        ylabel = "Time ($\\mu$s)"
+        ylabel = ylabel or "Time ($\\mu$s)"
     elif yunit == "depth":
         t = (np.arange(rx.shape[0]) - attrs["pre_trig"]) / attrs["fs"]
         cdepth = ghog.constants.c / np.sqrt(pdepth)
         ymin = np.min(t) * cdepth / 2
         ymax = np.max(t) * cdepth / 2
-        ylabel = "Depth (m)"
+        ylabel = ylabel or "Depth (m)"
 
     # Apply gain
     t = (np.arange(rx.shape[0]) - attrs["pre_trig"]) / attrs["fs"]
