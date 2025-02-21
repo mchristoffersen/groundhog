@@ -18,17 +18,24 @@ import pickle
 import systemd.daemon
 import serial.tools.list_ports
 import numpy as np
+import zmq
 
 import ubx
+
+# dataDir = "/home/radar/groundhog/data/gnss/"
+dataDir = "/tmp/"
 
 
 class GNSS:
     def __init__(self):
-        self.socat = None
-        self.server = None
+        self.redirect = None
+        self.redirectID = None
+        self.context = None
+        self.reSock = None
+        self.ptSock = None
+        self.logfile = None
 
         self.connected = False
-        self.initialized = False
         self.logger = logging.getLogger()
 
         # PT state
@@ -45,11 +52,11 @@ class GNSS:
         self.lastFix = None  # fix time
 
         logging.info("Initializing GNSS instance")
-        self.init_socket()
+        self.init_gnss_socket()
 
         while not self.connected:
             logging.info("Initializing GNSS connection")
-            self.init_connection()
+            self.init_redirect()
             time.sleep(1)
 
         self.init_messages()
@@ -57,7 +64,6 @@ class GNSS:
         logging.info("GNSS initialized")
 
         # Find free filename
-        dataDir = "/home/radar/groundhog/data/gnss/"
         c = 0
         while os.path.isfile(dataDir + "log%d.ubx" % c):
             c += 1
@@ -66,38 +72,61 @@ class GNSS:
 
         logging.info("Logging messages to %s" % self.logfile)
 
+        # Initialize socket for serving positon info
+        logging.info("Initializing socket for serving GNSS info")
+        self.ptSock = self.context.socket(zmq.PUB)
+        self.ptSock.bind("tcp://*:5557")
+
     def __del__(self):
-        # Kill socat
-        if self.socat is not None:
-            self.socat.kill()
+        # Kill redirect
+        if self.redirect is not None:
+            self.redirect.kill()
 
-        # Shut down socket
-        if self.server is not None:
-            self.server.shutdown(socket.SHUT_RDWR)
-            self.server.close()
+        # Kill ZMQ redirect socket
+        if self.reSock is not None:
+            self.reSock.setsockopt(zmq.LINGER, 0)
+            self.reSock.close()
 
-    def init_socket(self):
-        # Set up UNIX domain socket server-side
-        logging.info("Configuring GNSS unix socket")
-        # Set the path for the Unix socket
-        self.socket_path = socket_path = "/tmp/gnss"
+        # Kill PT socket
+        if self.ptSock is not None:
+            self.reSock.setsockopt(zmq.LINGER, 0)
+            self.reSock.close()
 
-        # remove the socket file if it already exists
-        try:
-            os.unlink(socket_path)
-        except OSError:
-            if os.path.exists(socket_path):
-                logging.error("Failed to delete socket path: %s" % socket_path)
-                sys.exit(1)
+        # Kill ZMQ context
+        if self.context is not None:
+            self.context.destroy()
 
-        # Create the Unix socket server
-        self.server = server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        server.bind(socket_path)
-        server.listen(1)
+    def init_gnss_socket(self):
+        self.context = zmq.Context()
+        self.reSock = self.context.socket(zmq.STREAM)
+        self.reSock.bind("tcp://*:5556")
 
+    def send_to_gnss(self, msg):
+        if self.reSock is None:
+            logging.Error("Redirect socket not initialized, unable to send message")
+            return 1
+
+        self.reSock.send_multipart([self.redirectID, msg])
         return 0
 
-    def init_connection(self):
+    def recv_from_gnss(self):
+        if self.reSock is None:
+            logging.Error("Redirect socket not initialized, unable to send message")
+            return 1
+
+        try:
+            _, msg = self.reSock.recv_multipart(flags=zmq.NOBLOCK)
+        except zmq.error.Again:
+            return None
+
+        # Log message
+        if self.logfile is not None:
+            with open(self.logfile, mode="ab") as fd:
+                fd.write(msg)
+
+        return msg
+
+    def init_redirect(self):
         # Set up ZED-F9P connection (socat to redirect serial data to socket)
         logging.info("Searching for ZED-F9P GNSS")
         desc = "u-blox GNSS receiver"
@@ -116,25 +145,29 @@ class GNSS:
         logging.info("Found ZED-F9P GNSS")
         logging.info("Starting socat redirect")
 
-        self.socat = subprocess.Popen(
+        self.redirect = subprocess.Popen(
             [
                 "/usr/bin/socat",
                 "%s,b115200,raw,echo=0" % dev,
-                "UNIX-CONNECT:%s" % self.socket_path,
+                "TCP:localhost:5556",
             ]
         )
 
-        # Wait for client connection
-        while not self.connected:
-            logging.info("Looking for socat connection")
-            ready = select.select([self.server], [], [], 1)[0]
-            if len(ready) > 0:
-                self.connection, _ = self.server.accept()
-                self.connection.settimeout(0.1)
+        # Wait for client connection and save ID
+        for i in range(10):
+            try:
+                self.redirectID, msg = self.reSock.recv_multipart(flags=zmq.NOBLOCK)
                 self.connected = True
-            if self.socat.returncode is not None:
-                logging.warning("socat terminated")
-                return 1
+                break
+            except zmq.error.Again:
+                logging.warning("No socat connection detected, waiting 100ms")
+                time.sleep(0.1)
+
+        if self.connected is False:
+            logging.error("No socat connection after 1 second")
+            return 1
+
+        logging.info("Socat connection detected")
 
         return 0
 
@@ -143,7 +176,7 @@ class GNSS:
         logging.info("Resetting receiver and repeating initialization")
         cmds = ubx.makeReset()
         for cmd in cmds:
-            self.connection.sendall(cmd)
+            self.send_to_gnss(cmd)
         time.sleep(10)
         self.__init__()
         return 1
@@ -154,7 +187,7 @@ class GNSS:
 
         cmds = ubx.disableAllMessagesCmds()
         for cmd in cmds:
-            self.connection.sendall(cmd)
+            self.send_to_gnss(cmd)
             time.sleep(0.001)
         time.sleep(1)
 
@@ -163,7 +196,7 @@ class GNSS:
         cmds += ubx.enableSFRBXCmds()
         cmds += ubx.enableRFCmds()
         for cmd in cmds:
-            self.connection.sendall(cmd)
+            self.send_to_gnss(cmd)
             time.sleep(0.001)
 
         logging.info("Checking that message initialization was sucessful")
@@ -177,11 +210,10 @@ class GNSS:
         t0 = time.time()
         buf = b""
         while np.abs(t0 - time.time()) < 5:
-            try:
-                buf += self.connection.recv(65536)
-            except TimeoutError:
-                time.sleep(1)
+            msg = self.recv_from_gnss()
+            if msg is None:
                 continue
+            buf += msg
             while (messageInfo := ubx.getMessage(buf)) != 1:
                 (start, end, msgClass, msgID, msg) = messageInfo
                 name = ubx.getMsgName(msgClass, msgID)
@@ -196,18 +228,17 @@ class GNSS:
             )
             self.reset_receiver()
             return 1
+
         return 0
 
-    def checkMessages(self, save=False):
+    def checkGNSSMessages(self):
         # Read messages from GNSS, parse PVT and RF to update GNSS state
         # then write everything to a file
-        try:
-            buf = self.connection.recv(65536)
-        except TimeoutError:
+        msg = self.recv_from_gnss()
+        if msg is None:
             return 0
 
-        with open(self.logfile, mode="ab") as fd:
-            fd.write(buf)
+        buf = msg
 
         while buf != b"":
             while (messageInfo := ubx.getMessage(buf)) != 1:
@@ -217,15 +248,33 @@ class GNSS:
                 if name == "UBX-NAV-PVT":
                     pvt = ubx.parseMsg(msg)
                     self.updatePT(pvt)
-            try:
-                new = self.connection.recv(65536)
-            except TimeoutError:
+
+            msg = self.recv_from_gnss()
+
+            if msg is None and buf == b"":
                 return 0
+            elif msg is None and buf != b"":
+                continue
 
-            with open(self.logfile, mode="ab") as fd:
-                fd.write(new)
+            buf += msg
 
-            buf += new
+    def publishPT(self):
+        if self.ptSock is not None:
+            self.ptSock.send_pyobj(
+                (
+                    self.position,
+                    self.time,
+                    self.fixType,
+                    self.timeSinceFix(),
+                    time.time(),
+                )
+            )
+        else:
+            logging.warning(
+                "PT publishing socket does not exist, not sending PT update"
+            )
+
+        return 0
 
     def updatePT(self, pvt):
         # Update state from PVT message
@@ -250,11 +299,6 @@ class GNSS:
         self.position["hgt"] = float(pvt["height"]) * 1e-3  # convert mm to m
         self.lastFix = time.time()
         self.fixType = typeDict[pvt["fixType"]]
-
-    def picklePT(self):
-        return pickle.dumps(
-            (self.position, self.time, self.fixType, self.timeSinceFix(), time.time())
-        )
 
     def timeSinceFix(self):
         if self.lastFix is not None:
@@ -286,22 +330,16 @@ def main():
 
     while True:
         systemd.daemon.notify("WATCHDOG=1")
-        gnss.checkMessages()
+        gnss.checkGNSSMessages()
+        gnss.publishPT()
 
-        # Write current fix
-        with open("/tmp/gnss_fix", mode="wb") as fd:
-            fd.write(gnss.picklePT())
-
-        # Write time as text
-        with open("/tmp/gnss_time", mode="w") as fd:
-            fd.write("%s,%f" % (gnss.timeString(), gnss.timeSinceFix()))
-
-        if gnss.socat.poll() is not None:
+        if gnss.redirect.poll() is not None:
             logging.warning("socat termiated, attempting to restart GNSS connection")
+            del gnss
             gnss = GNSS()
             continue
 
-        time.sleep(1)
+        time.sleep(0.25)
 
 
 class SystemdHandler(logging.Handler):
