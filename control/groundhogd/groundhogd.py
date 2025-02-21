@@ -10,14 +10,16 @@ import logging
 import sys
 import time
 import os
-import posix
-import socket
-import select
 import subprocess
 import json
 
 import systemd.daemon
 import numpy as np
+import zmq
+
+# Radar executable
+# exe = "/home/radar/groundhog/control/src/radar"
+exe = "/usr/bin/ls"
 
 
 def main():
@@ -26,44 +28,30 @@ def main():
     root_logger.addHandler(SystemdHandler())
     logging.info("Starting groundhogd")
 
-    # set up named pipes
-    logging.info("Setting up named pipes")
-    gui2dae_path = "/tmp/gui2dae"
-    dae2gui_path = "/tmp/dae2gui"
-    rdr2dae_path = "/tmp/rdr2dae"
-    rdr2gui_path = "/tmp/rdr2gui"
+    # set up sockets
+    context = zmq.Context()
+    guiSock = context.socket(zmq.REP)
+    guiSock.bind("tcp://*:5555")
 
-    for path in [gui2dae_path, dae2gui_path, rdr2dae_path, rdr2gui_path]:
-        try:
-            os.unlink(path)
-        except OSError:
-            if os.path.exists(path):
-                logging.error("Failed to delete fifo path: %s" % path)
-                sys.exit(1)
-        os.mkfifo(path)
+    # gnssSock = context.socket(zmq.SUB)
+    # gnssSock.bind("tcp://*:5556")
 
     # Is the radar running
     running = False
-
-    # Open 2dae pipes for reading
-    gui2dae_fd = os.open(gui2dae_path, os.O_RDONLY | os.O_NONBLOCK)
-    gui2dae = os.fdopen(gui2dae_fd)
-
-    # Open 2gui pipe for writing
-    # dae2gui = open(dae2gui_path, mode="w")
-    dae2gui = None
 
     while True:
         systemd.daemon.notify("WATCHDOG=1")
 
         # Check for message from GUI
-        msg = gui2dae.readline()
-        print(msg)
+        try:
+            guiMsg = guiSock.recv(flags=zmq.NOBLOCK).decode()
+        except zmq.error.Again:
+            guiMsg = ""
+            pass
 
-        if "start" in msg and not running:
-            if(dae2gui is None):
-            # Make command from json
-            params = json.loads(msg.replace("start", ""))
+        if "start" in guiMsg and not running:
+            # Make command from message
+            params = json.loads(guiMsg.replace("start", ""))
 
             # Strip any non-digits from strings
             for k, v in params.items():
@@ -77,8 +65,13 @@ def main():
                 if not os.path.isfile(name):
                     break
             if i == 9999:
+                guiReply += (
+                    "\n" + "!!! Failed to start radar - out of data file names !!!"
+                )
                 logging.error("Out of data file names")
-                sys.exit(1)
+                guiSock.send_string(guiReply)
+                guiMsg = ""
+                continue
 
             args = "--file %s --trigger %s --pretrig %s --spt %s --stack %s" % (
                 name,
@@ -88,29 +81,46 @@ def main():
                 params["stack"],
             )
 
-            exe = "/home/radar/groundhog/control/src/radar"
-
-            dae2gui.write(cmd + " " + exe)
+            guiReply = exe + " " + args
+            guiMsg = ""
 
             try:
                 radar = subprocess.Popen([exe, args])
+                time.sleep(0.25)
+                print(radar.returncode)
             except FileNotFoundError:
-                dae2gui.write(
-                    "Failed to start radar - could not locate executable %s" % exe
+                guiReply += (
+                    "\n"
+                    + "!!! Failed to start radar - could not locate executable %s !!!"
+                    % exe
                 )
+
                 logging.error(
                     "Failed to start radar - could not locate executable %s" % exe
                 )
+                guiSock.send_string(guiReply)
+                guiMsg = ""
+                continue
+
+            guiReply += "\n" + "Data file  -  %s" % name
+
             running = True
-        elif "start" in msg and running:
-            dae2gui.write("Ignoring start command while radar is running.\n")
+            guiSock.send_string(guiReply)
+            guiMsg = ""
+
+        elif "start" in guiMsg and running:
+            guiSock.send_string("Ignoring start command while radar is running.")
+            guiMsg = ""
             logging.info("Ignoring start command while radar is running.")
-        elif "stop" in msg and running:
-            dae2gui.write("Stopping radar")
+        elif "stop" in guiMsg and running:
+            guiSock.send_string("Stopping radar.\n")
+            guiMsg = ""
             logging.info("Stopping radar.")
             radar.kill()
-        elif "stop" in msg and not running:
-            dae2gui.write("Ignoring stop command while radar is not running\n")
+            running = False
+        elif "stop" in guiMsg and not running:
+            guiSock.send_string("Ignoring stop command while radar is not running.")
+            guiMsg = ""
             logging.info("Ignoring stop command while radar is not running.")
         time.sleep(1)
 

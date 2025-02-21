@@ -7,10 +7,31 @@ import sys
 import pickle
 import time
 
+import zmq
+
 app = flask.Flask(__name__)
 
 # Set up a separate radar state daemon that keeps track of whether radar is running, feedback / messages from radar,
 # data from GNSS etc. This daemon is accessed to update the webpage
+
+
+def send2dae(msg):
+    context = zmq.Context()
+    daeSock = context.socket(zmq.REQ)
+    daeSock.setsockopt(zmq.RCVTIMEO, 1200)
+    daeSock.connect("tcp://localhost:5555")
+
+    daeSock.send_string(msg)
+
+    try:
+        msg = daeSock.recv().decode()
+    except zmq.error.Again:
+        msg = 'Message failed. No reply received from daemon.  -  "' + msg + '"'
+
+    daeSock.setsockopt(zmq.LINGER, 0)
+    daeSock.close()
+    context.destroy()
+    return msg
 
 
 @app.route("/")
@@ -20,11 +41,25 @@ def home():
 
 @app.route("/_get_gnss")
 def get_gnss():
+    context = zmq.Context()
+    gnssSock = context.socket(zmq.SUB)
+    gnssSock.setsockopt_string(zmq.SUBSCRIBE, "")
+    gnssSock.setsockopt(zmq.RCVTIMEO, 500)
+    gnssSock.connect("tcp://localhost:5557")
+
     try:
-        with open("/tmp/gnss_fix", mode="rb") as fd:
-            (gnssPosition, gnssTime, fixType, tfix, twrite) = pickle.load(fd)
-    except FileNotFoundError:
-        return flask.jsonify(fix="no GNSS")
+        msg = gnssSock.recv_pyobj()
+    except zmq.error.Again:
+        msg = None
+
+    gnssSock.setsockopt(zmq.LINGER, 0)
+    gnssSock.close()
+    context.destroy()
+
+    if msg is None:
+        return flask.jsonify(fix="No GNSS")
+
+    (gnssPosition, gnssTime, fixType, tfix, twrite) = msg
 
     twrite = time.time() - twrite
     strDate = "%04d-%02d-%02d" % (gnssTime["year"], gnssTime["month"], gnssTime["day"])
@@ -49,16 +84,16 @@ def get_radar():
 @app.route("/_start", methods=["POST"])
 def start():
     data = flask.request.data
-    with open("/tmp/gui2dae", mode="w") as fd:
-        fd.write("start" + data.decode() + "\n")
-    return "0"
+    msg = "start" + data.decode()
+    resp = send2dae(msg)
+    return flask.jsonify(text=resp)
 
 
 @app.route("/_stop", methods=["POST"])
 def stop():
-    with open("/tmp/gui2dae", mode="w") as fd:
-        fd.write("stop" + "\n")
-    return "0"
+    msg = "stop"
+    resp = send2dae(msg)
+    return flask.jsonify(text=resp)
 
 
 @app.route("/_get_console")

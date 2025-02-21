@@ -60,6 +60,15 @@ $(document).ready(function () {
     });
     return false;
   }
+
+  // Radar console update
+  function update_radarConsole(update) {
+    var $radarConsole = $("textarea#radarConsole");
+    var text = $radarConsole.val();
+    $radarConsole.val(text + "\n" + update);
+    $radarConsole.scrollTop($radarConsole[0].scrollHeight);
+    return false
+  }
   
   // Start button
   $("#buttonStart").click(function() {
@@ -74,15 +83,19 @@ $(document).ready(function () {
       contentType: "applicaton/json",
       data: data,
       success: function(response) {
+        update_radarConsole(response.text)
       },
       error: function(xhr, status, error) {
+        update_radarConsole("Failed to send start - " + error)
       },
     })
   });
   
   // Stop button
   $("#buttonStop").click(function() {
-    $.post("/_stop", function (data) {});
+    $.post("/_stop", function (response) {
+      update_radarConsole(response.text)
+    });
   });
 
   // Console updater
@@ -101,14 +114,10 @@ $(document).ready(function () {
 //    return false;
 //  }
 
-  //update_console();
-  update_radar();
+  //update_radar();
   update_gnss();
 
-  //var interval = setInterval(update_console, 1000);
-  var interval = setInterval(update_radar, 1000);
+  //var interval = setInterval(update_radar, 1000);
   var interval = setInterval(update_gnss, 1000);
 
-  // Set gain text
-  //$('#gaintext').html( $('#gain').val();
 });
