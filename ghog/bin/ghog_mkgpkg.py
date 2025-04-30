@@ -41,6 +41,7 @@ def main():
         print("Reading /%s/gps0 dataset from:" % (args.group))
 
     rows = []
+    print("yeaux")
     for file in args.files:
         if not file.endswith(".h5"):
             print("\t%s does not have .h5 extension, skipping" % file)
@@ -54,8 +55,10 @@ def main():
 
             data = ghog.load(file, group=args.group)
 
-            if len(data["gps"]) == 0:
-                print("Length 0 /%s/gps0 dataset in %s" % (args.group, file))
+            print(data["gps"])
+
+            if len(data["gps"]) <= 1:
+                print("Length 0 or 1 /%s/gps0 dataset in %s" % (args.group, file))
                 continue
 
             gps = [(lon, lat, elev) for (lon, lat, elev, time) in data["gps"]]

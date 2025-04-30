@@ -28,7 +28,10 @@ def load(file, group="raw"):
 
     with h5py.File(file, mode="r") as fd:
         rx = fd[group]["rx0"][:]
-        gps = fd[group]["gps0"][:]
+        try:
+            gps = fd[group]["ppp0"][:]
+        except KeyError:
+            gps = fd[group]["gps0"][:]
         attrs = dict(fd[group]["rx0"].attrs.items())
 
     return {"rx": rx, "gps": gps, "attrs": attrs}
