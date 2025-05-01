@@ -1,6 +1,7 @@
 # Re-used input validation routines
 import numpy as np
 
+
 def check_data(data):
     expected_keys = ["rx", "gps", "attrs"]
     missing_keys = []
@@ -15,6 +16,7 @@ def check_data(data):
     check_gps(data["gps"])
     check_attrs(data["attrs"])
     check_rx_gps_match(data["rx"], data["gps"])
+
 
 def check_gps(gps):
     if type(gps) != np.ndarray:

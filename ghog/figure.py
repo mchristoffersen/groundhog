@@ -9,9 +9,10 @@ import ghog.constants
 
 def figure(
     data,
-    file="radargram.png",
+    file=None,
     xunit="distance",
     yunit="time",
+    ylim=(None, None),
     title=None,
     xlabel=None,
     ylabel=None,
@@ -27,10 +28,11 @@ def figure(
     Args:
         data: Groundhog data dictionary (rx, gps, attrs).
         file: File name to save figure at. To not save an image
-            use filename=None (default = "radargram.png").
+            use filename=None (default = None).
         xunit: Unit for x axis, valid options are ["index", "distance"] (default = "distance").
         yunit: Unit for y axis, valid options are ["index", "time", "depth"] if "depth"
             is chosen the pdepth argument is used to convert time to depth (default = "time").
+        ylim: Limits for y axis, two element tuple in same units as yunit (default = (None, None))
         title: Title for the figure (default = None).
         pdepth: Relative permittivity for y axis depth conversion (default = 3.15).
         figsize: Figure dimension (x, y) in inches (default = (8, 4)).
@@ -58,7 +60,7 @@ def figure(
             % (yunit, legal_yunit)
         )
 
-    if type(title) != str:
+    if type(title) != str and title is not None:
         raise TypeError("title must be a string.")
 
     if type(figsize) != tuple and type(figsize) != list:
@@ -68,7 +70,7 @@ def figure(
         raise ValueError("Length of figsize must be 2.")
 
     if pclip < 0 or pclip >= 50:
-        raise ValueError("pclup must be greater than or equal to 0 and less than 50")
+        raise ValueError("pclip must be greater than or equal to 0 and less than 50")
 
     if type(show) is not bool:
         raise TypeError("show must be a boolean.")
@@ -125,10 +127,11 @@ def figure(
         aspect="auto",
         cmap=cmap,
     )
+    plt.ylim(ylim)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
 
-    if(title is not None):
+    if title is not None:
         plt.title(title)
 
     if file is not None:

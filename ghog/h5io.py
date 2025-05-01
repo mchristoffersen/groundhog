@@ -1,6 +1,8 @@
 # Groundhog HDF5 I/O operations
-import h5py
 import os
+import warnings
+
+import h5py
 import numpy as np
 
 import ghog.checks
@@ -33,6 +35,44 @@ def load(file, group="raw"):
         except KeyError:
             gps = fd[group]["gps0"][:]
         attrs = dict(fd[group]["rx0"].attrs.items())
+
+    # Do some attribute translation/addition if necessary
+    # handles old files
+    expected_keys = ["fs", "pre_trig", "prf", "spt", "stack", "trig"]
+    for key in expected_keys:
+        if key not in attrs.keys():
+            if key == "pre_trig" and "pre_trigger" in attrs.keys():
+                attrs["pre_trig"] = attrs["pre_trigger"]
+                del attrs["pre_trigger"]
+            elif key == "trig" and "trigger_threshold" in attrs.keys():
+                attrs["trig"] = attrs["trigger_threshold"]
+                del attrs["trigger_threshold"]
+            elif key == "prf":
+                attrs["prf"] = 0
+            elif key == "spt":
+                attrs["spt"] = rx.shape[0]
+
+    # Rearrange gps data type if necessary
+    # also for handling old files
+    gpst = [("lon", "<f8"), ("lat", "<f8"), ("hgt", "<f8"), ("utc", "S26")]
+    if gps.dtype != gpst:
+        fields = gps.dtype.names
+        if (
+            "lon" in fields
+            and "lat" in fields
+            and "hgt" in fields
+            and ("utc" in fields or "time" in fields)
+        ):
+            warnings.warn(
+                "Unexpected GNSS datatype, attempting to reformat.",
+                stacklevel=2,
+            )
+            if "utc" in fields:
+                utc = "utc"
+            else:
+                utc = "time"
+            gpsrefmt = list(zip(gps["lon"], gps["lat"], gps["hgt"], gps[utc]))
+            gps = np.array(gpsrefmt, dtype=gpst)
 
     return {"rx": rx, "gps": gps, "attrs": attrs}
 
