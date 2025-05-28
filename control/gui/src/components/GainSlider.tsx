@@ -1,4 +1,3 @@
-import * as React from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 
@@ -43,16 +42,17 @@ interface Props {
 }
 
 export default function GainSlider({ gain, setGain }: Props) {
-  const handleChange = (event: Event, newGain: number) => {
-    setGain(newGain);
-  };
+  //const handleChange = (event: Event, newGain: number) => {
+  //  setGain(newGain);
+  //};
+  
+  //         onChange={handleChange}
 
   return (
     <Box>
       Gain Power: {gain}
       <Slider
         value={gain}
-        onChange={handleChange}
         valueLabelDisplay="off"
         step={0.5}
         min={0.5}

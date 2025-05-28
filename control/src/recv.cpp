@@ -155,7 +155,7 @@ int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, 
   // Set up ZMQ socket
   zmq::context_t ctx(1);
   zmq::socket_t radarSock(ctx, zmq::socket_type::pub);
-  radarSock.bind("tcp://localhost:5557");
+  radarSock.bind("tcp://127.0.0.1:5557");
   std::ostringstream msg;
   std::string msg_str;
 

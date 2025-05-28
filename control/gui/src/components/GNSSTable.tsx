@@ -13,9 +13,9 @@ export default function GNSSTable() {
   const [lon, setLon] = React.useState("");
   const [lat, setLat] = React.useState("");
   const [hgt, setHgt] = React.useState("");
-  const [bgcolor, setBgcolor] = React.useState("lightgrey");
+  const [bgcolor] = React.useState("lightgrey");
 
-  /*
+
   React.useEffect(() => {
     const fetchData = async () => {
       try {
@@ -43,7 +43,7 @@ export default function GNSSTable() {
     return () => {
       clearInterval(interval);
     };
-  }, []);*/
+  }, []);
 
   return (
     <TableContainer component={Paper}>

@@ -67,7 +67,20 @@ export default function OperateTab({
   const handleClearClick = () => {
     setConsoleText("");
   };
+  
+            //  <Grid size={6}>
+          //    <GainSlider gain={gain} setGain={setGain} />
+        //    </Grid>
+      //      <Grid size={6}>
+     //         <TimeSlider timeWin={timeWin} setTimeWin={setTimeWin} />
+    //        </Grid>
 
+       // <Grid sx={{ backgroundColor: "Grey" }} size={9}>
+      //    <Box sx={{ width: "100%", height: "48vh" }} />
+      //  </Grid>
+      //  <Grid size={3}>
+      //    <TraceView />
+      //  </Grid>
   return (
     <Box>
       <Grid
@@ -78,26 +91,14 @@ export default function OperateTab({
         }}
         spacing={2}
       >
-        <Grid sx={{ backgroundColor: "Grey" }} size={9}>
-          <Box sx={{ width: "100%", height: "48vh" }} />
-        </Grid>
-        <Grid size={3}>
-          <TraceView />
-        </Grid>
+
         <Grid size={9}>
           <Grid container spacing={2}>
-            <Grid size={6}>
-              <GainSlider gain={gain} setGain={setGain} />
-            </Grid>
-            <Grid size={6}>
-              <TimeSlider timeWin={timeWin} setTimeWin={setTimeWin} />
-            </Grid>
             <Grid size={12}>
               <Console consoleText={consoleText} />
             </Grid>
             <Grid size={5}>
               <Button
-                sx={{ height: "8vh", width: "50%", fontSize: "3em" }}
                 variant="contained"
                 color="success"
                 size="large"
@@ -108,7 +109,6 @@ export default function OperateTab({
             </Grid>
             <Grid size={2}>
               <Button
-                sx={{ fontSize: "1em" }}
                 variant="contained"
                 color="primary"
                 size="small"
@@ -119,7 +119,6 @@ export default function OperateTab({
             </Grid>
             <Grid size={5}>
               <Button
-                sx={{ height: "8vh", width: "50%", fontSize: "3em" }}
                 variant="contained"
                 color="error"
                 size="large"
