@@ -44,11 +44,11 @@ export default function RadarTabs() {
     "radarConsoleText",
     ""
   );
-  const [gain, setGain] = UseH.useLocalStorage("gain", 1.0);
-  const [timeWin, setTimeWin] = UseH.useLocalStorage<number[]>(
-    "timeWin",
-    [0, 10]
-  );
+  //const [gain, setGain] = UseH.useLocalStorage("gain", 1.0);
+  //const [timeWin, setTimeWin] = UseH.useLocalStorage<number[]>(
+  //  "timeWin",
+  //  [0, 10]
+  //);
 
   const addToRadarConsole = (text: string) => {
     setRadarConsoleText(radarConsoleText + "\n" + text);
@@ -114,6 +114,7 @@ export default function RadarTabs() {
   };
 
   const handleChange = (event: React.SyntheticEvent, newTab: number) => {
+    console.log(event);
     setTab(newTab);
   };
 
@@ -134,11 +135,6 @@ export default function RadarTabs() {
         <OperateTab
           consoleText={radarConsoleText}
           setConsoleText={setRadarConsoleText}
-          addToConsole={addToRadarConsole}
-          gain={gain}
-          setGain={setGain}
-          timeWin={timeWin}
-          setTimeWin={setTimeWin}
           handleStartClick={handleStartClick}
           handleStopClick={handleStopClick}
         />

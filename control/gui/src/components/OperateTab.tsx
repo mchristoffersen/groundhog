@@ -2,22 +2,16 @@ import * as React from "react";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
-import TextField from "@mui/material/TextField";
-import GainSlider from "./GainSlider";
-import TimeSlider from "./TimeSlider";
+//import GainSlider from "./GainSlider";
+//import TimeSlider from "./TimeSlider";
 import GNSSTable from "./GNSSTable";
 import RadarTable from "./RadarTable";
 import Console from "./Console";
-import TraceView from "./TraceView";
+//import TraceView from "./TraceView";
 
 interface Props {
   consoleText: string;
   setConsoleText: (text: string) => void;
-  addToConsole: (text: string) => void;
-  gain: number;
-  setGain: (gain: number) => void;
-  timeWin: number[];
-  setTimeWin: (timeWin: number[]) => void;
   handleStartClick: () => void;
   handleStopClick: () => void;
 }
@@ -31,11 +25,6 @@ function useLatest<T>(value: T) {
 export default function OperateTab({
   consoleText,
   setConsoleText,
-  addToConsole,
-  gain,
-  setGain,
-  timeWin,
-  setTimeWin,
   handleStartClick,
   handleStopClick,
 }: Props) {
@@ -67,20 +56,20 @@ export default function OperateTab({
   const handleClearClick = () => {
     setConsoleText("");
   };
-  
-            //  <Grid size={6}>
-          //    <GainSlider gain={gain} setGain={setGain} />
-        //    </Grid>
-      //      <Grid size={6}>
-     //         <TimeSlider timeWin={timeWin} setTimeWin={setTimeWin} />
-    //        </Grid>
 
-       // <Grid sx={{ backgroundColor: "Grey" }} size={9}>
-      //    <Box sx={{ width: "100%", height: "48vh" }} />
-      //  </Grid>
-      //  <Grid size={3}>
-      //    <TraceView />
-      //  </Grid>
+  //  <Grid size={6}>
+  //    <GainSlider gain={gain} setGain={setGain} />
+  //    </Grid>
+  //      <Grid size={6}>
+  //         <TimeSlider timeWin={timeWin} setTimeWin={setTimeWin} />
+  //        </Grid>
+
+  // <Grid sx={{ backgroundColor: "Grey" }} size={9}>
+  //    <Box sx={{ width: "100%", height: "48vh" }} />
+  //  </Grid>
+  //  <Grid size={3}>
+  //    <TraceView />
+  //  </Grid>
   return (
     <Box>
       <Grid
@@ -91,7 +80,6 @@ export default function OperateTab({
         }}
         spacing={2}
       >
-
         <Grid size={9}>
           <Grid container spacing={2}>
             <Grid size={12}>

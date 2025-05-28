@@ -1,4 +1,3 @@
-import * as React from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 
@@ -69,7 +68,7 @@ const marks = [
   },
 ];
 
-const minDistance = 1;
+//const minDistance = 1;
 
 interface Props {
   timeWin: number[];
@@ -77,30 +76,32 @@ interface Props {
 }
 
 export default function TimeSlider({ timeWin, setTimeWin }: Props) {
-  const handleChange = (
-    event: Event,
-    newTimeWin: number[],
-    activeThumb: number
-  ) => {
-    if (activeThumb === 0) {
-      setTimeWin([
-        Math.min(newTimeWin[0], timeWin[1] - minDistance),
-        timeWin[1],
-      ]);
-    } else {
-      setTimeWin([
-        timeWin[0],
-        Math.max(newTimeWin[1], timeWin[0] + minDistance),
-      ]);
-    }
-  };
+  //const handleChange = (
+  //  event: Event,
+  //  newTimeWin: number[],
+  //  activeThumb: number
+  //) => {
+  //  if (activeThumb === 0) {
+  //    setTimeWin([
+  //      Math.min(newTimeWin[0], timeWin[1] - minDistance),
+  //      timeWin[1],
+  //    ]);
+  //  } else {
+  //    setTimeWin([
+  //      timeWin[0],
+  //      Math.max(newTimeWin[1], timeWin[0] + minDistance),
+  //    ]);
+  //  }
+  //};
+
+  //        onChange={handleChange}
+  setTimeWin([0, 10]);
 
   return (
     <Box>
       Time Window: {timeWin[0]} - {timeWin[1]} us
       <Slider
         value={timeWin}
-        onChange={handleChange}
         valueLabelDisplay="off"
         disableSwap
         step={1}

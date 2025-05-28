@@ -1,11 +1,10 @@
 import * as React from "react";
-import { LineChart } from "@mui/x-charts/LineChart";
 import Box from "@mui/material/Box";
 
 export default function TraceView() {
   const [imageUrl, setImageUrl] = React.useState("");
-  const [traceData, setTraceData] = React.useState<number[]>([]);
-  const [timeAxis, setTimeAxis] = React.useState<number[]>([]);
+  //const [traceData, setTraceData] = React.useState<number[]>([]);
+  //const [timeAxis, setTimeAxis] = React.useState<number[]>([]);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +38,7 @@ export default function TraceView() {
   return (
     <Box sx={{ height: "48vh" }}>
       {imageUrl ? (
-        <img src={imageUrl} alt="Live chart" style={{ width: "100%" }} />
+        <img src={imageUrl} style={{ width: "100%" }} />
       ) : (
         <div>No image available</div>
       )}

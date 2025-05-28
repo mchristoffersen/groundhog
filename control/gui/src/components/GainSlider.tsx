@@ -45,9 +45,10 @@ export default function GainSlider({ gain, setGain }: Props) {
   //const handleChange = (event: Event, newGain: number) => {
   //  setGain(newGain);
   //};
-  
+
   //         onChange={handleChange}
 
+  setGain(1);
   return (
     <Box>
       Gain Power: {gain}
