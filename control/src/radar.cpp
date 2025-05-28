@@ -1,4 +1,5 @@
 // Michael Christoffersen 2023
+// Updated Feb 2025
 // Groundhog radar receiver control software
 // Real-mode streaming and triggering from Ettus N210
 
@@ -11,6 +12,8 @@
 #include <csignal>
 #include <cstdlib>
 #include <fstream>
+#include <atomic>
+#include <mutex>
 #include <iostream>
 #include <uhd/convert.hpp>
 #include <uhd/exception.hpp>
@@ -28,18 +31,44 @@ namespace po = boost::program_options;
 // stop signal
 static bool stop_signal_called = false;
 
-// Define the function to be called when ctrl-c (SIGINT) is sent to process
-void sigint_handler(int signum) {
+// Define the function to be called when ctrl-c (SIGINT) or SIGTERM is sent to
+// process
+void sigint_sigterm_handler(int signum)
+{
   std::cout << "\nStopping" << std::endl;
   stop_signal_called = true;
 }
 
-int UHD_SAFE_MAIN(int argc, char *argv[]) {
+void dumpArrayTerminal(std::complex<short> *buff, size_t buff_len)
+{
+  std::cout << "[";
+  for (int i = 0; i < buff_len; ++i)
+  {
+    std::cout << buff[i].real() << ",";
+  }
+  std::cout << "]" << std::endl;
+}
+
+void dumpArrayFile(std::complex<short> *buff, size_t buff_len,
+                   std::string file_name)
+{
+  std::ofstream file(file_name, std::ios::out);
+  for (size_t i = 0; i < buff_len - 1; ++i)
+  {
+    file << buff[i].real() << ",";
+  }
+  file << buff[buff_len - 1].real();
+  file << std::endl;
+}
+
+int UHD_SAFE_MAIN(int argc, char *argv[])
+{
   // set thread priority (high)
   uhd::set_thread_priority_safe(1, true);
 
   // signal handler
-  std::signal(SIGINT, &sigint_handler);
+  std::signal(SIGINT, &sigint_sigterm_handler);
+  std::signal(SIGTERM, &sigint_sigterm_handler);
 
   // variables to be set by po
   std::string file, args, subdev;
@@ -69,7 +98,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   po::store(po::parse_command_line(argc, argv, desc), vm);
 
   // print the help message
-  if (vm.count("help")) {
+  if (vm.count("help"))
+  {
     std::cout << "Groundhog Radar Receiver " << desc << std::endl;
     std::cout << std::endl
               << "This application records impulse radar data "
@@ -80,79 +110,68 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   po::notify(vm);
 
-  std::cout << "gui: " << gui << std::endl;
-
-  // Whether to print overflow message
-  bool overflow_message = true;
-
-  // Samples in receive buffer
-  size_t spb = 10000;
-
-  // Center freq must be zero
-  double freq = 0;
-
-  // This is a single channel application so hardcoding channel 0
-  std::vector<size_t> channel_list = {0};
-
-  // Using LFRX with no LO
-  double lo_offset = 0.0;
-
-  // Using internal clock
-  std::string ref = "internal";
-
-  // Hardcoding cpu and wire formats
+  // N210 initialization variables
+  double freq = 0;                        // No digital tuning
+  std::vector<size_t> channel_list = {0}; // single channel, so hardcode channel 0
+  double lo_offset = 0.0;                 // LFRF has no LO
+  std::string ref = "internal";           // TODO: use GPSDO if available
   std::string cpu_format = "sc16";
   std::string wire_format = "sc16";
 
-  // create a usrp device
+  // Create USRP device
   std::cout << std::endl;
-  std::cout << "Creating the usrp device with: " << args << "..." << std::endl;
+  std::cout << "Creating the usrp device with: " << args << std::endl;
   uhd::usrp::multi_usrp::sptr usrp = uhd::usrp::multi_usrp::make(args);
 
   // Lock mboard clock
-  if (vm.count("ref")) {
+  if (vm.count("ref"))
+  {
     usrp->set_clock_source(ref);
   }
 
   // always select the subdevice first, the channel mapping affects the other
   // settings
-  if (vm.count("subdev")) usrp->set_rx_subdev_spec(subdev);
+  if (vm.count("subdev"))
+    usrp->set_rx_subdev_spec(subdev);
 
   // set the sample rate
-  if (rate <= 0.0) {
-    std::cerr << "Please specify a valid sample rate" << std::endl;
+  if (rate != 25e6 && rate != 50e6)
+  {
+    std::cerr << "Please specify a valid sample rate (25e6 or 50e6)" << std::endl;
     return ~0;
   }
-  std::cout << boost::format("Setting RX Rate: %f Msps...") % (rate / 1e6)
+  std::cout << boost::format("Setting RX Rate: %f Msps") % (rate / 1e6)
             << std::endl;
   usrp->set_rx_rate(rate, uhd::usrp::multi_usrp::ALL_CHANS);
-  std::cout << boost::format("Actual RX Rate: %f Msps...") %
-                   (usrp->get_rx_rate(channel_list[0]) / 1e6)
+  rate = usrp->get_rx_rate(channel_list[0]);
+  std::cout
+      << boost::format("Actual RX Rate: %f Msps") %
+             (rate / 1e6)
+      << std::endl
+      << std::endl;
+
+  // set the center frequency
+  std::cout << boost::format("Setting RX Freq: %f MHz...") % (freq / 1e6)
+            << std::endl;
+  std::cout << boost::format("Setting RX LO Offset: %f MHz...") %
+                   (lo_offset / 1e6)
+            << std::endl;
+  uhd::tune_request_t tune_request(freq, lo_offset);
+  if (vm.count("int-n"))
+    tune_request.args = uhd::device_addr_t("mode_n=integer");
+  for (size_t chan : channel_list)
+    usrp->set_rx_freq(tune_request, chan);
+  std::cout << boost::format("Actual RX Freq: %f MHz...") %
+                   (usrp->get_rx_freq(channel_list[0]) / 1e6)
             << std::endl
             << std::endl;
 
-  // set the center frequency
-  if (vm.count("freq")) {  // with default of 0.0 this will always be true
-    std::cout << boost::format("Setting RX Freq: %f MHz...") % (freq / 1e6)
-              << std::endl;
-    std::cout << boost::format("Setting RX LO Offset: %f MHz...") %
-                     (lo_offset / 1e6)
-              << std::endl;
-    uhd::tune_request_t tune_request(freq, lo_offset);
-    if (vm.count("int-n"))
-      tune_request.args = uhd::device_addr_t("mode_n=integer");
-    for (size_t chan : channel_list) usrp->set_rx_freq(tune_request, chan);
-    std::cout << boost::format("Actual RX Freq: %f MHz...") %
-                     (usrp->get_rx_freq(channel_list[0]) / 1e6)
-              << std::endl
-              << std::endl;
-  }
   // No gain
   // No IF filter
-  // No antennas
+  // No antenna
   // No need to check ref and LO lock
 
-  // Get 100 ms of samples to auto-detect PRF with
+  // Get 100 ms of samples to auto-detect PRF
   // create a receive streamer
   uhd::stream_args_t stream_args(cpu_format, wire_format);
   stream_args.channels = channel_list;
@@ -161,10 +180,10 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   uhd::rx_metadata_t md;
 
   // setup streaming
-  float t = 0.1;  // length of time to record
+  double t = 2; // length of time to record (s)
   uhd::stream_cmd_t prf_stream_cmd(
       uhd::stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
-  prf_stream_cmd.num_samps = size_t(usrp->get_rx_rate(channel_list[0]) * t);
+  prf_stream_cmd.num_samps = size_t(rate * t);
   prf_stream_cmd.stream_now = true;
 
   // Complex buffer for PRF detection
@@ -176,7 +195,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   size_t num_recvd_samps =
       rx_stream->recv(prf_buff, prf_stream_cmd.num_samps, md, .5);
 
-  if (num_recvd_samps != prf_stream_cmd.num_samps) {
+  if (num_recvd_samps != prf_stream_cmd.num_samps)
+  {
     std::cout
         << "Failed to record correct number of samples for PRF auto-detect"
         << std::endl
@@ -188,7 +208,8 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
 
   // Check for at least one trigger event
   if (ampTriggerSingle(prf_buff, prf_stream_cmd.num_samps, trigger) ==
-      prf_stream_cmd.num_samps) {
+      prf_stream_cmd.num_samps)
+  {
     std::cout << "Failed to trigger!" << std::endl;
     return ~0;
   }
@@ -196,38 +217,134 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // Detect PRF and compare to declared one if applicable
   size_t prf_meas =
       detectPRF(prf_buff, prf_stream_cmd.num_samps, trigger, spt, rate);
-  if (prf_meas == 0) {
+  if (prf_meas == 0)
+  {
     std::cout << "Failed to measure PRF" << std::endl;
-    if (prf == 0) {
+    if (prf == 0)
+    {
       return ~0;
     }
   }
   std::cout << boost::format("Detected PRF: %d Hz") % prf_meas << std::endl;
   std::cout << boost::format("Declared PRF: %d Hz") % prf << std::endl;
-  if (prf == 0) {
-    std::cout << "Using detected PRF.\n" << std::endl;
+  if (prf == 0)
+  {
+    std::cout << "Using detected PRF.\n"
+              << std::endl;
     prf = prf_meas;
   }
+
+  size_t spb = 2 * spt; // samples per buffer (2x samples per trace)
+  // TODO: should do some math here with pre-trigger samples...
 
   // free rx buffer for prf
   free(prf_buff);
 
   // Print config
-  std::cout << "Sampling frequency: " << rate << std::endl
+  std::cout << "Sampling frequency: " << rate / 1e6 << " MHz" << std::endl
             << "Samples per trace: " << spt << std::endl
             << "Pre-trigger samples: " << pretrig << std::endl
             << "Stacking: " << stack << std::endl
             << "Trigger amplitude: " << trigger << std::endl;
 
-  // spin up consumer thread (which initializes queues)
-  boost::thread consumer(triggerAndStack, prf, spt, pretrig, spb, stack,
-                         trigger, rate, file, gui);
+  // spin up receiver thread
+  RadarParams params;
+  params.prf = prf;
+  params.spt = spt;
+  params.spb = spb;
+  params.pretrig = pretrig;
+  params.stack = stack;
+  params.trigger = trigger;
+  params.rate = rate;
 
-  extern tsQueue<std::complex<short> *> freeq;
-  extern tsQueue<std::complex<short> *> fullq;
+  boost::thread receiver(receive, usrp, rx_stream, params, file);
+
+  // Do scheduling
+  extern std::mutex t0_mutex;
+  extern std::atomic<bool> t0_valid;
+  extern uhd::time_spec_t t0;
+  extern std::atomic<double> nudge;
+
+  // Wait for valid t0
+  while (not t0_valid)
+  {
+    // sleep 1 ms
+    usleep(1000);
+  }
+
+  // Set up stream cmd for receiving samples
+  uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
+  stream_cmd.stream_now = false;
+  // TODO: add more nuance here
+  stream_cmd.num_samps = spb;
+
+  {
+    // Need mutex on t0
+    std::lock_guard<std::mutex> lock(t0_mutex);
+    // Start 500 pulse intervals in the future, shift by half trace length
+    // for trigger wiggle room
+    stream_cmd.time_spec = t0 + 500.0 / prf - (spt / rate) / 2;
+  }
+
+  // Check timing and keep issuing stream commands until stop signal called
+  size_t cmdCount = 0;
+  size_t queueDepth = 16; // schedule this many commands in advance
+  double leadTime;
+  std::cout << std::fixed;
+  std::cout << std::setprecision(6);
+
+  // Initial commands
+  for (int i = 0; i < queueDepth; i++)
+  {
+    stream_cmd.time_spec += 1.0 / double(prf);
+    rx_stream->issue_stream_cmd(stream_cmd);
+  }
+
+  while (not stop_signal_called)
+  {
+    // Check lead time, sleep for a prf if too far out
+    leadTime = (stream_cmd.time_spec - usrp->get_time_now()).get_real_secs();
+
+    if (leadTime > double(queueDepth) / double(prf))
+    {
+      // std::cout << "next sched time: " << stream_cmd.time_spec.get_real_secs() << std::endl;
+      // std::cout << "usrp time: " << usrp->get_time_now().get_real_secs() << std::endl;
+      usleep(1e6 / double(prf));
+      continue;
+    }
+
+    stream_cmd.time_spec += 1.0 / double(prf);
+    rx_stream->issue_stream_cmd(stream_cmd);
+
+    // std::cout << "sched time: " << stream_cmd.time_spec.get_real_secs() << std::endl;
+
+    // std ::cout << "Stream time spec: " << stream_cmd.time_spec.get_real_secs() << std::endl;
+    cmdCount++;
+
+    if (cmdCount % queueDepth == 0)
+    {
+      // Check nudge every queueDepth commands
+      stream_cmd.time_spec += nudge.exchange(0.0);
+
+      // std::cout << "Stream time spec: " << stream_cmd.time_spec.get_real_secs()
+      //           << std::endl
+      //           << "USRP time: " << usrp->get_time_now().get_real_secs() << std::endl
+      //           << std::endl;
+    }
+  }
+
+  // When done
+  // Interrupt and join
+  receiver.interrupt();
+  receiver.join();
+
+  return 0;
+  /*
+  extern std::atomic<int> nudge;
 
   // Malloc a bunch of memory chunks for rx
-  for (size_t i = 0; i < 2000; i++) {
+  for (size_t i = 0; i < 2000; i++)
+  {
     freeq.push(
         (std::complex<short> *)malloc(sizeof(std::complex<short>) * spb));
   }
@@ -235,75 +352,214 @@ int UHD_SAFE_MAIN(int argc, char *argv[]) {
   // rx buffer pointer
   std::complex<short> *rx_buff;
 
-  // Stream samples continuiously and send to consumer thread
-  uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_START_CONTINUOUS);
-  stream_cmd.stream_now = true;
-  rx_stream->issue_stream_cmd(stream_cmd);
+  // Set up stream cmd for receiving samples
+  uhd::stream_cmd_t stream_cmd(uhd::stream_cmd_t::STREAM_MODE_NUM_SAMPS_AND_DONE);
+  stream_cmd.stream_now = false;
+  stream_cmd.num_samps = spb;
 
-  while (not stop_signal_called) {
-    // Check if there is an available memory chunk, allocate one if not
-    if (freeq.empty()) {
-      std::cout << "Warning: empty free queue" << std::endl;
-      freeq.push(
-          (std::complex<short> *)malloc(sizeof(std::complex<short>) * spb));
-    }
+  uhd::time_spec_t t0;
+  if (acquireTrigger(rate, prf, rx_stream, trigger, &t0) == ~0)
+  {
+    std::cout << "Failed to acquire trigger time." << std::endl;
+    return ~0;
+  }
+  // Set the initial stream command time spec
+  // Set ahead 10 pulse intervals
+  // Subtract half of the trace length for wiggle room
+  stream_cmd.time_spec = t0 + 10.0 / prf - (spt / rate) / 2;
 
-    rx_buff = freeq.pop();
+  // std::cout << std::fixed;
+  // std::cout << std::setprecision(6);
 
-    // Receive samples
-    num_recvd_samps = rx_stream->recv(rx_buff, spb, md);
+  // Issue next 32 stream commands
+  for (float i = 0; i < 32; i++)
+  {
+    stream_cmd.time_spec += 1.0 / prf;
+    rx_stream->issue_stream_cmd(stream_cmd);
+  }
 
-    // Check that right number of samps were received
-    if (num_recvd_samps != spb) {
-      std::cout << "Bad number of recv samples, skipping queue push"
-                << std::endl
-                << boost::format("Recieved: %zu") % num_recvd_samps << std::endl
-                << boost::format("Requested: %zu") % spb << std::endl;
-      freeq.push(rx_buff);
-      continue;
-    }
+  size_t trigSamp;
+  size_t rxCount = 0;
+  double leadTime = 0;
+  int myNudge = 0;
+  // while (not stop_signal_called)
+  for (int i = 0; i < 1000; i++)
+  {
+    // Schedule acquisitions
+    leadTime = (stream_cmd.time_spec - usrp->get_time_now()).get_real_secs();
 
-    // Check for other issues
-    if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
-      std::cout << std::endl << "Timeout while streaming" << std::endl;
-      break;
-    }
-    if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_OVERFLOW) {
-      if (overflow_message) {
-        overflow_message = false;
-        std::cout << std::endl << "Overflow indication" << std::endl;
+    // Check if stream commands are stale
+    if (leadTime < 0)
+    {
+      std::cout << "Stream command time is in the past!\n Attempting to reacquire trigger"
+                << std::endl;
+
+      // Get new streamer
+      rx_stream = usrp->get_rx_stream(stream_args);
+
+      // Try to recaquire trigger
+      while (acquireTrigger(rate, prf, rx_stream, trigger, &t0) == ~0 && not stop_signal_called)
+      {
+        std::cout << "Failed to reacquire trigger time. Sleeping for 1 second then trying again." << std::endl;
+        usleep(1000000);
       }
-      continue;
+
+      std::cout << "Re-acquired trigger!." << std::endl;
+
+      // Issue new stream commands
+      stream_cmd.time_spec = t0 + 10.0 / prf - (spt / rate) / 2;
+
+      // Issue next 32 stream commands
+      for (float i = 0; i < 32; i++)
+      {
+        stream_cmd.time_spec += 1.0 / prf;
+        rx_stream->issue_stream_cmd(stream_cmd);
+      }
     }
-    if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE) {
-      std::string error = "Receiver error: " + md.strerror();
-      break;
+    else
+    {
+      std::cout << "Pulses ahead: " << int(prf * leadTime) << std::endl;
     }
 
-    // Put full buffer in the full queue
-    fullq.push(rx_buff);
+
+  myNudge = nudge.load();
+  std::cout << "nudge: " << myNudge << std::endl;
+  // Check if there is an available memory chunk, allocate one if not
+  if (freeq.empty())
+  {
+    std::cout << "Warning: empty free queue" << std::endl;
+    freeq.push(
+        (std::complex<short> *)malloc(sizeof(std::complex<short>) * spb));
+  }
+
+  rx_buff = freeq.pop();
+
+  // Receive samples
+  num_recvd_samps = rx_stream->recv(rx_buff, spb, md, 1);
+  // std::cout << "Received " << num_recvd_samps << " samps" << std::endl;
+
+  // Check that right number of samps were received
+  if (num_recvd_samps != spb)
+  {
+    std::cout << "Bad number of recv samples."
+              << std::endl
+              << boost::format("Recieved: %zu") % num_recvd_samps << std::endl
+              << boost::format("Requested: %zu") % spb << std::endl;
+
+    // Put rx_buff back
+    freeq.push(rx_buff);
+
+    // Check if stream commands are stale
+    if (stream_cmd.time_spec < usrp->get_time_now())
+    {
+      std::cout << "Stream command time is in the past!\n Attempting to reacquire trigger"
+                << std::endl;
+
+      // Get new streamer
+      rx_stream = usrp->get_rx_stream(stream_args);
+
+      // Try to recaquire trigger
+      while (acquireTrigger(rate, prf, rx_stream, trigger, &t0) == ~0 && not stop_signal_called)
+      {
+        std::cout << "Failed to reacquire trigger time. Sleeping for 1 second then trying again." << std::endl;
+        usleep(1000000);
+      }
+
+      std::cout << "Re-acquired trigger!." << std::endl;
+
+      // Issue new stream commands
+      stream_cmd.time_spec = t0 + 10.0 / prf - (spt / rate) / 2;
+
+      // Issue next 32 stream commands
+      for (float i = 0; i < 32; i++)
+      {
+        stream_cmd.time_spec += 1.0 / prf;
+        rx_stream->issue_stream_cmd(stream_cmd);
+      }
+    }
+
+    // Try again
+    continue;
+  }
+
+  // Check for other issues
+  if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE)
+  {
+    std::string error = "Receiver error: " + md.strerror();
+    break;
+  }
+
+  // Every 100 triggers nudge timing if necessary
+  // Then check if falling behind on stream commands and issue several if necessary
+  if (rxCount % 100 == 0)
+  {
+    trigSamp = ampTriggerSingle(rx_buff, spb, trigger);
+    if (trigSamp == stream_cmd.num_samps)
+    {
+      std::cout << "Failed to trigger during timing nudge!\nAttempting to reacquire trigger." << std::endl;
+
+      // Get new streamer
+      rx_stream = usrp->get_rx_stream(stream_args);
+
+      // Try to recaquire trigger
+      while (acquireTrigger(rate, prf, rx_stream, trigger, &t0) == ~0 && not stop_signal_called)
+      {
+        std::cout << "Failed to reacquire trigger time. Sleeping for 1 second then trying again." << std::endl;
+        usleep(1000000);
+      }
+
+      // Issue new stream commands
+      stream_cmd.time_spec = t0 + 10.0 / prf - (spt / rate) / 2;
+
+      // Issue next 32 stream commands
+      for (float i = 0; i < 32; i++)
+      {
+        stream_cmd.time_spec += 1.0 / prf;
+        rx_stream->issue_stream_cmd(stream_cmd);
+      }
+
+      // Put rx_buff back
+      freeq.push(rx_buff);
+
+      // Try again
+      continue;
+    }
+
+    // std::cout << "trigSamp in radar.cpp: " << trigSamp << " " << stream_cmd.num_samps << std::endl;
+    // Apply timing nudge
+    stream_cmd.time_spec += (double(trigSamp) - (double(spt) / 2.0)) / rate;
+  }
+
+  // Put full buffer in the full queue
+  fullq.push(rx_buff);
+  rxCount += 1;
+
+  // Increment time_spec and issue another stream command
+  md.time_spec += 1.0 / prf;
+  rx_stream->issue_stream_cmd(stream_cmd);
   }
 
   // Stop streaming
-  uhd::stream_cmd_t stream_cmd_stop(
-      uhd::stream_cmd_t::STREAM_MODE_STOP_CONTINUOUS);
-  rx_stream->issue_stream_cmd(stream_cmd_stop);
-
   std::cout << "Streaming stopped" << std::endl;
 
   // Interrupt and join
-  consumer.interrupt();
-  consumer.join();
+  receiver.interrupt();
+  receiver.join();
+
+  std::cout << "fullq size: " << fullq.size() << std::endl;
+  std::cout << "freeq size: " << freeq.size() << std::endl;
 
   // free all memory chunks
-  for (size_t i = 0; i < freeq.size(); i++) {
-    free(freeq.pop());
+  for (size_t i = 0; i < freeq.size(); i++)
+  {
+  free(freeq.pop());
   }
-  for (size_t i = 0; i < fullq.size(); i++) {
-    free(fullq.pop());
+  for (size_t i = 0; i < fullq.size(); i++)
+  {
+  free(fullq.pop());
   }
 
   std::cout << "Goodbye" << std::endl;
 
-  return 0;
+  return 0; */
 }
