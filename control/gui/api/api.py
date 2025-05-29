@@ -5,6 +5,9 @@ import zmq
 import numpy as np
 import matplotlib.pyplot as plt
 import io
+import gps
+import select
+import time
 
 from flask import Flask, request, jsonify, send_file, Response
 
@@ -29,6 +32,8 @@ traceSock.connect("tcp://localhost:5557")
 poller = zmq.Poller()
 poller.register(radarSock, zmq.POLLIN)
 poller.register(traceSock, zmq.POLLIN)
+
+ubx = gps.gps(mode=gps.WATCH_ENABLE)
 
 
 def generate_filename():
@@ -132,13 +137,50 @@ def radarTable():
 
 @app.route("/api/gnssTable", methods=["GET"])
 def gnssTable():
+    # TODO: some sort of timeout here...
+    latest_tpv = None
+    for i in range(18):  # Try for a bit more than a second
+        if select.select([ubx.sock], [], [], 0.1)[0]:
+            report = ubx.next()
+            if report and report["class"] == "TPV":
+                latest_tpv = report
+                break
+
+    bgcolor = "lightgrey"
+
+    if latest_tpv is not None:
+        fix = getattr(latest_tpv, "mode", 0)
+        utc = getattr(latest_tpv, "time", "T")
+        lat = getattr(latest_tpv, "lat", None)
+        lon = getattr(latest_tpv, "lon", None)
+        hgt = getattr(latest_tpv, "alt", None)
+
+        fixD = {0: "no fix", 1: "no fix", 2: "2D fix", 3: "3D fix"}
+
+        if fix == 0 or fix == 1:
+            bgcolor = "red"
+        elif fix == 2:
+            bgcolor = "yellow"
+        elif fix == 3:
+            bgcolor = "lightgreen"
+
+        return {
+            "fix": fixD[fix],
+            "date": utc.split("T")[0],
+            "time": utc.split("T")[1],
+            "lon": lon,
+            "lat": lat,
+            "hgt": hgt,
+            "bgcolor": bgcolor,
+        }
     return {
-        "fix": "fix",
-        "date": "date",
-        "time": "time",
-        "lon": "lon",
-        "lat": "lat",
-        "hgt": "hgt",
+        "fix": "",
+        "date": "",
+        "time": "",
+        "lon": "",
+        "lat": "",
+        "hgt": "",
+        "bgcolor": bgcolor,
     }
 
 
@@ -235,4 +277,4 @@ def stop():
 
 
 if __name__ == "__main__":
-    app.run(threaded=False)
+    app.run(threaded=False, port=5000)

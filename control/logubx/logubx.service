@@ -1,0 +1,18 @@
+[Unit]
+Description=UBX GNSS raw data logger
+After=network.target gpsd.service
+Wants=gpsd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/mchristo/proj/groundhog/control/logubx/logubx.py
+Restart=on-failure
+User=mchristo
+WorkingDirectory=/home/mchristo/proj/groundhog/data/ubx
+StandardOutput=journal
+StandardError=journal
+KillSignal=SIGTERM
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target
