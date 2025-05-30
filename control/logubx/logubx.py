@@ -1,10 +1,13 @@
 import gps
 import subprocess
 import datetime
+import time
+import os
+import select
 
 
 def wait_for_fix():
-    """Wait for GPS fix"""
+    # Wait for fix
     session = gps.gps(mode=gps.WATCH_ENABLE)
 
     while True:
@@ -15,26 +18,29 @@ def wait_for_fix():
                     return report.time
 
 
-def format_filename(gps_time_str):
-    """Make filename from time string"""
+def make_filename(gps_time_str, outDir):
+    # Make filename from time string
     dt = datetime.datetime.strptime(gps_time_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-    return dt.strftime("%Y%m%dT%H%M%S.ubx")
+    return os.path.join(outDir, dt.strftime("%Y%m%dT%H%M%S.ubx"))
 
 
 def record_raw_binary(filename):
-    """Dump binary output to a file"""
+    """Dump raw output to a file"""
     with open(filename, "wb", buffering=0) as f:
         proc = subprocess.Popen(["gpspipe", "-R"], stdout=f, bufsize=0)
         try:
             proc.wait()
         except KeyboardInterrupt:
             proc.terminate()
+            return
 
 
 def main():
-    gps_time = wait_for_fix()
-    filename = format_filename(gps_time)
-    record_raw_binary(filename)
+    outDir = "/home/mchristo/proj/groundhog/data/ubx/"
+    while True:
+        gps_time = wait_for_fix()
+        filename = make_filename(gps_time, outDir)
+        record_raw_binary(filename)
 
 
 if __name__ == "__main__":

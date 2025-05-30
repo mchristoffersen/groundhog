@@ -1,0 +1,13 @@
+html, 
+body {
+    max-height: 100vh;
+    box-sizing: border-box;
+}
+
+#root {
+  margin: 0 auto;
+  padding: 1rem;
+  text-align: center;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
