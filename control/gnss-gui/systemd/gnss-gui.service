@@ -1,0 +1,14 @@
+[Unit]
+Description=gunicorn serving gnss-gui flask api
+After=network.target
+
+[Service]
+User=groundhog
+Group=www-data
+WorkingDirectory=/home/groundhog/groundhog/control/gui/api
+ExecStart=/usr/bin/gunicorn --workers 1 --threads 1 --bind 127.0.0.1:5000 api:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
