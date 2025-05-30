@@ -2,8 +2,9 @@ import gps
 import select
 import os
 import time
+import subprocess
 
-from flask import Flask
+from flask import Flask, send_file
 
 
 app = Flask(__name__)
@@ -100,6 +101,27 @@ def gnssTable():
         reply["sat"] = "%d/%d" % (usat, nsat)
 
     return reply
+
+
+@app.route("/api/download")
+def download():
+    dataDir = "/home/mchristo/proj/groundhog/data/ubx"
+    tarPath = "/home/mchristo/proj/groundhog/data/ubx/ubx.tar.gz"
+
+    ubxFiles = [os.path.join(dataDir, f) for f in os.listdir(dataDir)]
+    ubxFiles = [f for f in ubxFiles if os.path.isfile(f)]
+
+    # Make tarball
+    proc = subprocess.Popen(
+        ["tar", "-czvf", tarPath, "--exclude=*.tar.gz", "."],
+        cwd=dataDir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    proc.wait()
+
+    return send_file(tarPath, as_attachment=True, download_name="ubx.tar.gz")
 
 
 if __name__ == "__main__":
