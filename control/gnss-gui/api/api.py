@@ -3,37 +3,68 @@ import select
 import os
 import time
 import subprocess
+import config
+import threading
 
 from flask import Flask, send_file
+
+
+latest_tpv = None
+latest_sky = None
+report_lock = threading.Lock()
+latest_sky_lock = threading.Lock()
+ubx = None
+
+
+def gnss_poller():
+    global latest_tpv, latest_sky, report_lock, ubx
+
+    while True:
+        try:
+            ubx = gps.gps(mode=gps.WATCH_ENABLE)
+            break
+        except Exception as e:
+            time.sleep(1)
+            continue
+
+    while True:
+        try:
+            haveTpv = False
+            haveSky = False
+            for i in range(28):  # Try for up to 2.8 seconds
+                if select.select([ubx.sock], [], [], 0.1)[0]:
+                    report = ubx.next()
+                    if report and report["class"] == "TPV":
+                        with report_lock:
+                            latest_tpv = report
+                        haveTpv = True
+                    if report and report["class"] == "SKY":
+                        if "nSat" in report:
+                            with report_lock:
+                                latest_sky = report
+                            haveSky = True
+                    if haveTpv and haveSky:
+                        break
+
+            if not haveTpv:
+                latest_tpv = None
+            if not haveSky:
+                latest_sky = None
+
+        except Exception as e:
+            time.sleep(1)
 
 
 app = Flask(__name__)
 
 
-# Global variables
-
-
 @app.route("/api/gnssTable", methods=["GET"])
 def gnssTable():
-    ubx = gps.gps(mode=gps.WATCH_ENABLE)
-    dataDir = "/home/mchristo/proj/groundhog/data/ubx"
+    global latest_tpv, latest_sky, report_lock
 
-    latest_tpv = None
-    latest_sky = None
-    haveSky = False
-    haveTpv = False
-    for i in range(45):  # Try for a bit more than four seconds
-        if select.select([ubx.sock], [], [], 0.1)[0]:
-            report = ubx.next()
-            if report and report["class"] == "TPV":
-                latest_tpv = report
-                haveTpv = True
-            if report and report["class"] == "SKY":
-                if "nSat" in report:
-                    latest_sky = report
-                    haveSky = True
-        if haveSky and haveTpv:
-            break
+    with report_lock:
+        tpv = dict(latest_tpv) if latest_tpv else None
+        sky = dict(latest_sky) if latest_sky else None
 
     bgcolor = "lightgrey"
 
@@ -52,12 +83,12 @@ def gnssTable():
         "logbgcolor": bgcolor,
     }
 
-    if latest_tpv is not None:
-        fix = getattr(latest_tpv, "mode", 0)
-        utc = getattr(latest_tpv, "time", "T")
-        lat = getattr(latest_tpv, "lat", None)
-        lon = getattr(latest_tpv, "lon", None)
-        hgt = getattr(latest_tpv, "alt", None)
+    if tpv is not None:
+        fix = tpv.get("mode", 0)
+        utc = tpv.get("time", "T")
+        lat = tpv.get("lat")
+        lon = tpv.get("lon")
+        hgt = tpv.get("alt")
 
         fixD = {0: "no fix", 1: "no fix", 2: "2D fix", 3: "3D fix"}
 
@@ -80,7 +111,9 @@ def gnssTable():
         reply["bgcolor"] = bgcolor
 
         # Check on log file
-        files = [os.path.join(dataDir, f) for f in os.listdir(dataDir)]
+        files = [
+            os.path.join(config.gnssDataDir, f) for f in os.listdir(config.gnssDataDir)
+        ]
         files = [f for f in files if os.path.isfile(f)]
         if len(files) > 0:
             mostRecent = max(files, key=os.path.getmtime)
@@ -94,9 +127,9 @@ def gnssTable():
 
         reply["logbgcolor"] = logbgcolor
 
-    if latest_sky is not None:
-        nsat = getattr(latest_sky, "nSat")
-        usat = getattr(latest_sky, "uSat")
+    if sky is not None:
+        nsat = sky.get("nSat")
+        usat = sky.get("uSat")
 
         reply["sat"] = "%d/%d" % (usat, nsat)
 

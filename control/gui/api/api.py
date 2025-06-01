@@ -7,16 +7,15 @@ import matplotlib.pyplot as plt
 import io
 import gps
 import select
+import threading
 import time
 
 from flask import Flask, request, jsonify, send_file, Response
 
 
-app = Flask(__name__)
-
-
 # Global variables
-process = None
+radarProcess = None
+gnssProcess = None
 
 context = zmq.Context()
 radarSock = context.socket(zmq.SUB)
@@ -33,16 +32,66 @@ poller = zmq.Poller()
 poller.register(radarSock, zmq.POLLIN)
 poller.register(traceSock, zmq.POLLIN)
 
-ubx = gps.gps(mode=gps.WATCH_ENABLE)
+latest_tpv = None
+latest_sky = None
+report_lock = threading.Lock()
+latest_sky_lock = threading.Lock()
+ubx = None
+
+
+def gnss_poller():
+    global latest_tpv, latest_sky, report_lock, ubx
+
+    while True:
+        try:
+            ubx = gps.gps(mode=gps.WATCH_ENABLE)
+            break
+        except Exception as e:
+            time.sleep(1)
+            continue
+
+    while True:
+        try:
+            haveTpv = False
+            haveSky = False
+            for i in range(28):  # Try for 2.8 seconds
+                if select.select([ubx.sock], [], [], 0.1)[0]:
+                    report = ubx.next()
+                    if report and report["class"] == "TPV":
+                        with report_lock:
+                            latest_tpv = report
+                        haveTpv = True
+                    if report and report["class"] == "SKY":
+                        if "nSat" in report:
+                            with report_lock:
+                                latest_sky = report
+                            haveSky = True
+                    if haveTpv and haveSky:
+                        break
+
+            if not haveTpv:
+                latest_tpv = None
+            if not haveSky:
+                latest_sky = None
+
+        except Exception as e:
+            time.sleep(1)
+
+
+app = Flask(__name__)
+
+
+with app.app_context():
+    thread = threading.Thread(target=gnss_poller, daemon=True)
+    thread.start()
 
 
 def generate_filename():
     # Utility function to generate an unused filename
     for i in range(10000):
-        name = os.path.join(config.dataDir, "groundhog%04d" % i)
-        if not os.path.isfile(name + ".ghog"):
-            return name + ".ghog"
-            break
+        name = os.path.join(config.radarDataDir, "groundhog%04d" % i)
+        if not os.path.isfile(name + ".ghog") and not os.path.isfile(name + ".txt"):
+            return name
 
 
 def check_pid(pid):
@@ -97,7 +146,7 @@ def radarTable():
     # Check ZeroMQ messages
     global radarSock
     global poller
-    global process
+    global radarProcess
 
     msg = None
     info = {}
@@ -114,87 +163,121 @@ def radarTable():
             info[k] = v
 
         info["adc"] = str(float(info["adc"]) / 1e6) + " MHz"
-        info["prf"] += " Hz"
-    else:
-        info["ntrace"] = ""
-        info["prf"] = ""
-        info["adc"] = ""
+        info["prf"] = str(round(float(info["prf"]))) + " Hz"
+        info["synclogsize"] = "%.3f MB" % (
+            os.path.getsize(info["file"].replace(".ghog", ".txt")) / 1e6
+        )
 
-    if process is None:
+        info["file"] = os.path.basename(info["file"])
+
+    if radarProcess is None:
         info["bgcolor"] = "lightgrey"
-    elif process is not None and msg is not None:
+    elif radarProcess is not None and msg is not None:
         info["bgcolor"] = "lightgreen"
     else:
         info["bgcolor"] = "red"
 
     return {
-        "ntrc": info["ntrace"],
-        "prf": info["prf"],
-        "adc": info["adc"],
-        "bgcolor": info["bgcolor"],
+        "file": info.get("file"),
+        "ntrc": info.get("ntrace"),
+        "prf": info.get("prf"),
+        "adc": info.get("adc"),
+        "bgcolor": info.get("bgcolor"),
+        "synclogsize": info.get("synclogsize"),
     }
 
 
 @app.route("/api/gnssTable", methods=["GET"])
 def gnssTable():
-    # TODO: some sort of timeout here...
-    latest_tpv = None
-    for i in range(18):  # Try for a bit more than a second
-        if select.select([ubx.sock], [], [], 0.1)[0]:
-            report = ubx.next()
-            if report and report["class"] == "TPV":
-                latest_tpv = report
-                break
+    global latest_tpv, latest_sky, report_lock
+
+    with report_lock:
+        tpv = dict(latest_tpv) if latest_tpv else None
+        sky = dict(latest_sky) if latest_sky else None
 
     bgcolor = "lightgrey"
 
-    if latest_tpv is not None:
-        fix = getattr(latest_tpv, "mode", 0)
-        utc = getattr(latest_tpv, "time", "T")
-        lat = getattr(latest_tpv, "lat", None)
-        lon = getattr(latest_tpv, "lon", None)
-        hgt = getattr(latest_tpv, "alt", None)
-
-        fixD = {0: "no fix", 1: "no fix", 2: "2D fix", 3: "3D fix"}
-
-        if fix == 0 or fix == 1:
-            bgcolor = "red"
-        elif fix == 2:
-            bgcolor = "yellow"
-        elif fix == 3:
-            bgcolor = "lightgreen"
-
-        return {
-            "fix": fixD[fix],
-            "date": utc.split("T")[0],
-            "time": utc.split("T")[1],
-            "lon": lon,
-            "lat": lat,
-            "hgt": hgt,
-            "bgcolor": bgcolor,
-        }
-    return {
+    # Defaults
+    reply = {
         "fix": "",
         "date": "",
         "time": "",
         "lon": "",
         "lat": "",
         "hgt": "",
+        "sat": "",
         "bgcolor": bgcolor,
+        "logfile": "",
+        "logsize": "",
+        "logbgcolor": bgcolor,
     }
+
+    if tpv is not None:
+        fix = tpv.get("mode", 0)
+        utc = tpv.get("time", "T")
+        lat = tpv.get("lat")
+        lon = tpv.get("lon")
+        hgt = tpv.get("alt")
+
+        fixD = {0: "no fix", 1: "no fix", 2: "2D fix", 3: "3D fix"}
+
+        if fix == 0 or fix == 1:
+            bgcolor = "red"
+            logbgcolor = "lightgrey"
+        elif fix == 2:
+            bgcolor = "yellow"
+            logbgcolor = "red"
+        elif fix == 3:
+            bgcolor = "lightgreen"
+            logbgcolor = "red"
+
+        reply["fix"] = fixD[fix]
+        reply["date"] = utc.split("T")[0]
+        reply["time"] = utc.split("T")[1].replace(".000Z", "")
+        reply["lon"] = lon
+        reply["lat"] = lat
+        reply["hgt"] = hgt
+        reply["bgcolor"] = bgcolor
+
+        # Check on log file
+        files = [
+            os.path.join(config.gnssDataDir, f) for f in os.listdir(config.gnssDataDir)
+        ]
+        files = [f for f in files if os.path.isfile(f)]
+        if len(files) > 0:
+            mostRecent = max(files, key=os.path.getmtime)
+            mTime = os.path.getmtime(mostRecent)
+
+            # If file modified within last 5 seconds
+            if mTime > time.time() - 5:
+                reply["logfile"] = os.path.basename(mostRecent)
+                reply["logsize"] = "%.3f MB" % (os.path.getsize(mostRecent) / 1e6)
+                logbgcolor = "lightgreen"
+
+        reply["logbgcolor"] = logbgcolor
+
+    if sky is not None:
+        nsat = sky.get("nSat")
+        usat = sky.get("uSat")
+
+        reply["sat"] = "%d/%d" % (usat, nsat)
+
+    return reply
 
 
 @app.route("/api/start", methods=["POST"])
 def start():
-    global process
+    global radarProcess
+    global gnssProcess
     data = request.get_json()
 
     # Validate input from gui?
+    file = generate_filename()
 
-    cmd = [
+    radarCmd = [
         config.radarExe,
         "--file",
-        "%s" % generate_filename(),
+        "%s" % (file + ".ghog"),
         "--trigger",
         "%s" % data["tthr"],
         "--pretrig",
@@ -205,48 +288,55 @@ def start():
         "%s" % data["stack"],
     ]
 
-    if process is None:
-        process = subprocess.Popen(
-            cmd,
+    gnssCmd = ["gpspipe", "-d", "-r", "-u", "-o", "%s" % (file + ".txt")]
+
+    if radarProcess is None and gnssProcess is None:
+        radarProcess = subprocess.Popen(
+            radarCmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        gnssProcess = subprocess.Popen(
+            gnssCmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
     else:
         return {"reply": "Acquisition already in progress."}
 
-    return {"reply": "Beginning acquisition: %s" % " ".join(cmd)}
+    return {"reply": "Beginning acquisition: %s" % " ".join(radarCmd)}
 
 
 @app.route("/api/console", methods=["GET"])
 def console():
-    global process
+    global radarProcess
 
-    if process is None:
+    if radarProcess is None:
         return {"reply": ""}
 
-    # Check if process is still running
-    if not check_pid(process.pid):
-        process = None
+    # Check if radarProcess is still running
+    if not check_pid(radarProcess.pid):
+        radarProcess = None
         return {"reply": "Acquisition has unexpectedly stopped."}
 
-    os.set_blocking(process.stdout.fileno(), False)
-    os.set_blocking(process.stderr.fileno(), False)
+    os.set_blocking(radarProcess.stdout.fileno(), False)
+    os.set_blocking(radarProcess.stderr.fileno(), False)
 
-    # Read output from process
+    # Read output from radarProcess
     lines = []
     for i in range(100):
         # Fetch up to 100 lines
-        output = process.stderr.readline()
+        output = radarProcess.stderr.readline()
         if output == b"":
             break
         else:
             # print(output.decode("utf-8").strip())
             lines.append(output.decode("utf-8").strip())
 
-    # Read output from process
+    # Read output from radarProcess
     for i in range(100):
         # Fetch up to 100 lines
-        output = process.stdout.readline()
+        output = radarProcess.stdout.readline()
         if output == b"":
             break
         else:
@@ -258,22 +348,35 @@ def console():
 
 @app.route("/api/stop", methods=["POST"])
 def stop():
-    global process
-    if process is None:
+    global radarProcess
+    global gnssProcess
+
+    msg = ""
+
+    if radarProcess is None and gnssProcess is None:
         return {"reply": "No acquisition in progress."}
 
-    print("Checking if process is still running", check_pid(process.pid))
-    if not check_pid(process.pid):
-        process = None
-        return {"reply": "Acquisition has unexpectedly stopped."}
+    if radarProcess is not None:
+        if check_pid(radarProcess.pid):
+            radarProcess.terminate()
+            radarProcess.wait()
+        else:
+            msg += " Radar process unexpectedly dead"
+        radarProcess = None
+    else:
+        msg += " Radar PID unexpectedly missing."
 
-    # Terminate process
-    process.terminate()
-    process.wait()
+    if gnssProcess is not None:
+        if check_pid(gnssProcess.pid):
+            gnssProcess.terminate()
+            gnssProcess.wait()
+        else:
+            msg += " GNSS process unexpectly dead."
+        gnssProcess = None
+    else:
+        msg += " GNSS PID unexpectly missing."
 
-    process = None
-
-    return {"reply": "Stopped acquisition."}
+    return {"reply": "Stopped acquisition." + msg}
 
 
 if __name__ == "__main__":
