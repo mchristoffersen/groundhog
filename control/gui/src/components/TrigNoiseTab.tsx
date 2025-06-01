@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box";
-import { LineChart } from "@mui/x-charts/LineChart";
 import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
 import Console from "./Console";
@@ -10,7 +9,6 @@ interface Props {
 }
 
 export default function TrigNoiseTab({ tnConsoleText, addToTnConsole }: Props) {
-  addToTnConsole("hello");
   return (
     <Box>
       <Grid
@@ -21,28 +19,6 @@ export default function TrigNoiseTab({ tnConsoleText, addToTnConsole }: Props) {
         }}
         spacing={2}
       >
-        <Grid size={6}>
-          <LineChart
-            xAxis={[{ data: [1, 2, 3, 5, 8, 10] }]}
-            series={[
-              {
-                data: [2, 5.5, 2, 8.5, 1.5, 5],
-              },
-            ]}
-            height={300}
-          />
-        </Grid>
-        <Grid size={6}>
-          <LineChart
-            xAxis={[{ data: [1, 2, 3, 5, 8, 10] }]}
-            series={[
-              {
-                data: [2, 5.5, 2, 8.5, 1.5, 5],
-              },
-            ]}
-            height={600}
-          />
-        </Grid>
         <Grid size={12}>
           <Console consoleText={tnConsoleText} />
         </Grid>

@@ -8,6 +8,8 @@ import Paper from "@mui/material/Paper";
 
 export default function RadarTable() {
   const [ntrc, setNtrc] = React.useState("");
+  const [file, setFile] = React.useState("");
+  const [syncLogSize, setSyncLogSize] = React.useState("");
   const [prf, setPrf] = React.useState("");
   const [adc, setAdc] = React.useState("");
   const [bgColor, setBgColor] = React.useState("lightgrey");
@@ -21,6 +23,8 @@ export default function RadarTable() {
             setNtrc(data.ntrc);
             setPrf(data.prf);
             setAdc(data.adc);
+            setFile(data.file);
+            setSyncLogSize(data.synclogsize);
             setBgColor(data.bgcolor);
           });
       } catch (error) {
@@ -48,7 +52,37 @@ export default function RadarTable() {
               sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
-              nTrc
+              File
+            </TableCell>
+            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+              {file}
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell
+              sx={{
+                whiteSpace: "nowrap",
+                fontSize: "0.8em",
+                backgroundColor: `${bgColor}`,
+              }}
+              align="right"
+            >
+              Sync Log
+            </TableCell>
+            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+              {syncLogSize}
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell
+              sx={{
+                whiteSpace: "nowrap",
+                fontSize: "0.8em",
+                backgroundColor: `${bgColor}`,
+              }}
+              align="right"
+            >
+              Trace Count
             </TableCell>
             <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
               {ntrc}

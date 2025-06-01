@@ -13,8 +13,11 @@ export default function GNSSTable() {
   const [lon, setLon] = React.useState("");
   const [lat, setLat] = React.useState("");
   const [hgt, setHgt] = React.useState("");
-  const [bgcolor] = React.useState("lightgrey");
-
+  const [sat, setSat] = React.useState("");
+  const [logFile, setLogFile] = React.useState("");
+  const [logSize, setLogSize] = React.useState("");
+  const [bgColor, setBgColor] = React.useState("lightgrey");
+  const [logBgColor, setLogBgColor] = React.useState("lightgrey");
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -28,6 +31,11 @@ export default function GNSSTable() {
             setLon(data.lon);
             setLat(data.lat);
             setHgt(data.hgt);
+            setSat(data.sat);
+            setLogFile(data.logfile);
+            setLogSize(data.logsize);
+            setBgColor(data.bgcolor);
+            setLogBgColor(data.logbgcolor);
           });
       } catch (error) {
         console.error(error);
@@ -36,7 +44,7 @@ export default function GNSSTable() {
 
     const interval = setInterval(() => {
       fetchData();
-    }, 1000);
+    }, 2000);
 
     fetchData();
 
@@ -46,23 +54,29 @@ export default function GNSSTable() {
   }, []);
 
   return (
-    <TableContainer component={Paper}>
+    <TableContainer component={Paper} sx={{ width: "100%" }}>
       <Table size="small" aria-label="simple table">
         <TableBody sx={{ fontSize: "1.5em" }}>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{
+                minWidth: "10ch",
+                fontSize: "0.8em",
+                backgroundColor: `${bgColor}`,
+              }}
               align="right"
             >
               Fix
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+            <TableCell
+              sx={{ minWidth: "15ch", fontSize: "0.8em", width: "75%" }}
+            >
               {fix}
             </TableCell>
           </TableRow>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
               Date
@@ -73,7 +87,7 @@ export default function GNSSTable() {
           </TableRow>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
               Time
@@ -84,7 +98,7 @@ export default function GNSSTable() {
           </TableRow>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
               Lon
@@ -95,7 +109,7 @@ export default function GNSSTable() {
           </TableRow>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
               Lat
@@ -106,13 +120,58 @@ export default function GNSSTable() {
           </TableRow>
           <TableRow>
             <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgcolor}` }}
+              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
               align="right"
             >
               Hgt
             </TableCell>
             <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
               {hgt}
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell
+              sx={{
+                whiteSpace: "nowrap",
+                fontSize: "0.8em",
+                backgroundColor: `${bgColor}`,
+              }}
+              align="right"
+            >
+              Sats (U/S)
+            </TableCell>
+            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+              {sat}
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell
+              sx={{
+                whiteSpace: "nowrap",
+                fontSize: "0.8em",
+                backgroundColor: `${logBgColor}`,
+              }}
+              align="right"
+            >
+              Log File
+            </TableCell>
+            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+              {logFile}
+            </TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell
+              sx={{
+                whiteSpace: "nowrap",
+                fontSize: "0.8em",
+                backgroundColor: `${logBgColor}`,
+              }}
+              align="right"
+            >
+              Log Size
+            </TableCell>
+            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
+              {logSize}
             </TableCell>
           </TableRow>
         </TableBody>
