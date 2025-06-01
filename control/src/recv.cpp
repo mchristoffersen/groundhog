@@ -4,6 +4,7 @@
 #include <boost/format.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/chrono.hpp>
 #include <csignal>
 #include <cstdlib>
 #include <fstream>
@@ -31,7 +32,9 @@
 // Communication with scheduler
 std::mutex t0_mutex;
 std::atomic<bool> t0_valid(false);
+std::atomic<bool> stream_valid(false);
 uhd::time_spec_t t0;
+uhd::rx_streamer::sptr rx_stream;
 std::atomic<double> nudge(0.0);
 
 // buffer pointer
@@ -60,7 +63,7 @@ size_t ampTriggerSingle(std::complex<short> *buff, size_t buff_len,
   return buff_len;
 }
 
-int acquireTrigger(size_t rate, size_t prf, uhd::rx_streamer::sptr rx_stream, short trigger, uhd::time_spec_t *t0)
+int acquireTrigger(size_t rate, size_t prf, short trigger, uhd::time_spec_t *t0)
 {
   uhd::rx_metadata_t md;
 
@@ -141,7 +144,7 @@ int writeFileHeader(std::ofstream &fd, size_t spt, size_t pretrig, size_t prf,
   return 0;
 }
 
-int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, RadarParams params, std::string file)
+int receive(uhd::usrp::multi_usrp::sptr usrp, RadarParams params, std::string file)
 {
   // Unpack params
   size_t prf = params.prf;
@@ -209,7 +212,7 @@ int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, 
   int acqStatus;
   {
     std::lock_guard<std::mutex> lock(t0_mutex);
-    acqStatus = acquireTrigger(rate, prf, rx_stream, trigger, &t0);
+    acqStatus = acquireTrigger(rate, prf, trigger, &t0);
   }
   if (acqStatus == ~0)
   {
@@ -230,40 +233,85 @@ int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, 
   uhd::time_spec_t lastTr = t0;
   while (true)
   {
-    num_recvd_samps = rx_stream->recv(rx_buff, spb, md, 1);
-    // std::cout << "rx time: " << md.time_spec.get_real_secs() << std::endl;
 
-    // Catch timeout and see if thread has been interrupted
-    if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT)
+    num_recvd_samps = rx_stream->recv(rx_buff, spb, md, 1);
+
+    if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE || num_recvd_samps != spb)
     {
-      std::cout << "Timeout in receive" << std::endl;
+      // Check for interruption
       try
       {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(10));
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(5));
       }
-      catch (boost::thread_interrupted &)
+      catch (const boost::thread_interrupted &)
       {
+        // Close out
+        int magic2 = MAGIC2;
+        fd.write((char *)&magic2, 4);
+        fd.close();
+        std::cout << "Receive thread dead" << std::endl;
         break;
       }
-    }
 
-    if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE && md.error_code != uhd::rx_metadata_t::ERROR_CODE_TIMEOUT)
-    {
-      std::cout << "Recieve error:" << std::endl
-                << md.strerror() << std::endl;
-      return ~0;
-    }
+      if (num_recvd_samps != spb)
+      {
+        std::cout
+            << "Received incorrect number of samples in receive."
+            << std::endl
+            << boost::format("Requested: %d") % (spb)
+            << std::endl
+            << boost::format("Received:  %d") % (num_recvd_samps)
+            << std::endl;
+      }
 
-    if (num_recvd_samps != spb)
-    {
-      std::cout
-          << "Received incorrect number of samples in receive."
-          << std::endl
-          << boost::format("Requested: %d") % (spb)
-          << std::endl
-          << boost::format("Received:  %d") % (num_recvd_samps)
-          << std::endl;
-      return ~0;
+      if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE)
+      {
+        std::cout
+            << "Receiver error: " + md.strerror()
+            << std::endl;
+      }
+
+      std::cout << "Attempting to reset streamer and trigger."
+                << std::endl;
+
+      // Signal other thread to remake streamer
+      t0_valid.store(false);
+      stream_valid.store(false);
+
+      // Wait for valid stream again
+      while (not stream_valid)
+      {
+        try
+        {
+          boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+        }
+        catch (const boost::thread_interrupted &)
+        {
+          // Close out
+          int magic2 = MAGIC2;
+          fd.write((char *)&magic2, 4);
+          fd.close();
+          std::cout << "Receive thread dead" << std::endl;
+          break;
+        }
+      }
+
+      // Re acquire trigger
+      {
+        std::lock_guard<std::mutex> lock(t0_mutex);
+        acqStatus = acquireTrigger(rate, prf, trigger, &t0);
+      }
+      if (acqStatus == ~0)
+      {
+        std::cout << "Failed to reacquire trigger." << std::endl;
+        return ~0;
+      }
+      else
+      {
+        // Got a t0!
+        t0_valid.store(true);
+      }
+      continue;
     }
 
     // Stack (or stack then save if stacked enough)
@@ -320,29 +368,25 @@ int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, 
       // force flush of i/o buffer (write to disk now!)
       std::flush(fd);
 
-      std::cout << std::fixed;
-      std::cout << std::setprecision(6);
-
       // Print status message to screen
-      std::cout << "  " << tmstr << " -- " << "Traces: " << ntrace
-                << "    trigSamp: " << trigSamp
-                << "    tr diff: " << (md.time_spec - lastTr).get_real_secs()
-                << "    usrp diff: " << (md.time_spec - usrp->get_time_now()).get_real_secs()
-                << "    stacktrack: " << stacktrack
-                << std::endl;
-      //<< "        \r"
-      //<< std::flush;
+      // std::cout << "  " << tmstr << " -- " << "Traces: " << ntrace
+      //          << "    trigSamp: " << trigSamp
+      // std::cout << "    tr diff: " << (md.time_spec - lastTr).get_real_secs() << std::endl;
+      //          << "    usrp diff: " << (md.time_spec - usrp->get_time_now()).get_real_secs()
+      //          << "    stacktrack: " << stacktrack
+      //          << "        \r" << std::flush;
 
-      lastTr = md.time_spec;
       stacktrack = 0; // reset counter
       ntrace++;
 
       // Send trace count
       msg.str("");
       msg.clear();
-      msg << "radar=0,ntrace=" << ntrace << ",prf=" << prf << ",adc=" << rate;
+      msg << "radar=0,ntrace=" << ntrace << ",prf=" << stack / ((md.time_spec - lastTr).get_real_secs()) << ",adc=" << rate << ",file=" << file;
       msg_str = msg.str();
       radarSock.send(zmq::message_t(msg_str.data(), msg_str.size()), zmq::send_flags::none);
+
+      lastTr = md.time_spec;
 
       zmq::message_t traceMsg(spt * sizeof(int64_t) + 5);
       memcpy(traceMsg.data(), "trace", 5);
@@ -356,13 +400,6 @@ int receive(uhd::usrp::multi_usrp::sptr usrp, uhd::rx_streamer::sptr rx_stream, 
       }
     }
   }
-
-  // Close out
-  int magic2 = MAGIC2;
-  fd.write((char *)&magic2, 4);
-  fd.close();
-  std::cout << std::endl
-            << "Consumer dead" << std::endl;
 
   return 0;
 }
