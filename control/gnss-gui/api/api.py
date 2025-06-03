@@ -57,6 +57,10 @@ def gnss_poller():
 
 app = Flask(__name__)
 
+with app.app_context():
+    thread = threading.Thread(target=gnss_poller, daemon=True)
+    thread.start()
+
 
 @app.route("/api/gnssTable", methods=["GET"])
 def gnssTable():
