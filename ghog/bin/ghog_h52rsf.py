@@ -42,7 +42,7 @@ def h52rsf(file):
         now = datetime.datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         fd.write(
-            "4.0\tsfrimfaxread\t%s:\t%s@%s\t%s\n\n"
+            "4.0\ghog_h52rsf\t%s:\t%s@%s\t%s\n\n"
             % (os.getcwd(), getpass.getuser(), socket.gethostname(), dt_string)
         )
         fd.write('\tin="stdin"\n')
@@ -50,7 +50,10 @@ def h52rsf(file):
         fd.write("\tesize=4\n")
         fd.write('\tlabel1="Time"\n')
         fd.write('\tunit1="ns"\n')
-        fd.write("\tn1=%d\n\to1=0\n\td1=%.9f\n" % (rx0pd.shape[0], dt * 1e9))
+        fd.write(
+            "\tn1=%d\n\to1=%.9f\n\td1=%.9f\n"
+            % (rx0pd.shape[0], -pt * dt * 1e9, dt * 1e9)
+        )
         fd.write('\tlabel2="Distance"\n')
         fd.write('\tunit2="m"\n')
         fd.write("\tn2=%d\n\to2=0\n\td2=%2.2f\n" % (rx0pd.shape[1], dx))
@@ -72,4 +75,5 @@ def main():
         h52rsf(file)
 
 
-main()
+if __name__ == "__main__":
+    main()

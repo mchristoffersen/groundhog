@@ -96,10 +96,11 @@ def main():
                 )
             ppp = np.array(ppp, dtype=ppp_t)
 
-            drv = fd.require_group("drv")
-            ppp0 = drv.require_dataset("ppp0", shape=ppp.shape, dtype=ppp.dtype)
+            raw = fd.require_group("raw")
+            ppp0 = raw.require_dataset("ppp0", shape=ppp.shape, dtype=ppp.dtype)
             ppp0[:] = ppp
             ppp0.attrs["desc"] = "CSRS PPP solution"
 
 
-main()
+if __name__ == "__main__":
+    main()
