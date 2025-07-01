@@ -138,7 +138,7 @@ def parseGPS(file):
         nmeas = list(filter(None, nmeas))
     except Exception as e:
         print(e)
-        return -1, -1
+        return (-1, -1)
 
     # List of tuples (system time, gnss time, lon, lat, hgt)
     lons = []
@@ -154,32 +154,36 @@ def parseGPS(file):
         syst, fix = nmea.split(": $", maxsplit=1)
         syst = np.datetime64(syst)
 
-        if "GPGGA" in fix:
+        if "GGA" in fix:
             # Parse it
             fix = fix.split(",")
-            time = (
-                float(fix[1][:2]) * 60 * 60
-                + float(fix[1][2:4]) * 60
-                + float(fix[1][4:8])
-            )
-            lat = DDMtoDD(fix[2])
-            lon = DDMtoDD(fix[4])
-            hgt = float(fix[9])
 
-            if fix[3] == "S":
-                lat *= -1
-
-            if fix[5] == "W":
-                lon *= -1
-
+            if fix[1] != "":
+                time = (
+                    float(fix[1][:2]) * 60 * 60
+                    + float(fix[1][2:4]) * 60
+                    + float(fix[1][4:8])
+                )
             times.append((syst, time))
-            lons.append((syst, lon))
-            lats.append((syst, lat))
-            hgts.append((syst, hgt))
+
+            if fix[2] != "" and fix[4] != "" and fix[9] != "":
+                lat = DDMtoDD(fix[2])
+                lon = DDMtoDD(fix[4])
+                hgt = float(fix[9])
+
+                if fix[3] == "S":
+                    lat *= -1
+
+                if fix[5] == "W":
+                    lon *= -1
+
+                lons.append((syst, lon))
+                lats.append((syst, lat))
+                hgts.append((syst, hgt))
 
             continue
 
-        if "GPZDA" in fix:
+        if "ZDA" in fix:
             fix = fix.split(",")
             time = (
                 float(fix[1][:2]) * 60 * 60
@@ -193,22 +197,29 @@ def parseGPS(file):
 
             continue
 
-        if "GPRMC" in fix:
+        if "RMC" in fix:
             fix = fix.split(",")
-            time = (
-                float(fix[1][:2]) * 60 * 60
-                + float(fix[1][2:4]) * 60
-                + float(fix[1][4:8])
-            )
 
-            times.append((syst, time))
+            if fix[1] != "":
+                time = (
+                    float(fix[1][:2]) * 60 * 60
+                    + float(fix[1][2:4]) * 60
+                    + float(fix[1][4:8])
+                )
+                times.append((syst, time))
+
+            if fix[9] != "":
+                date = np.datetime64(
+                    "20" + fix[9][4:6] + "-" + fix[9][2:4] + "-" + fix[9][0:2]
+                )
+                dates.append((syst, date))
 
             continue
 
     if times == [] and lats == [] and lons == [] and hgts == []:
         # Bail if no GPS info
         print("No gps information found")
-        return -1
+        return (-1, -1)
 
     # Handle day rollover if necessary
     tsyst, tgps = zip(*times)
@@ -325,6 +336,12 @@ def main():
                 continue
 
             rx, tTrace = parseTraces(data[46:], header["spt"], file)
+
+            if len(data) - 46 < header["spt"] * 2:
+                print(
+                    "%s - Data file appears to be empty, not attempting to parse" % file
+                )
+                continue
 
             if tTrace == -1:
                 print("%s - Failed to parse file data segment" % file)
