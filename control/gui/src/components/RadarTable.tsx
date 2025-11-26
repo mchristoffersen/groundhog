@@ -46,69 +46,48 @@ export default function RadarTable() {
   return (
     <TableContainer component={Paper}>
       <Table size="small" aria-label="simple table">
-        <TableBody sx={{ fontSize: "1.5em" }}>
+        <TableBody>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              File
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              FILE
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {file}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{file}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell
               sx={{
                 whiteSpace: "nowrap",
-                fontSize: "0.8em",
                 backgroundColor: `${bgColor}`,
               }}
               align="right"
             >
-              Sync Log
+              SYNC LOG
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {syncLogSize}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{syncLogSize}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell
               sx={{
                 whiteSpace: "nowrap",
-                fontSize: "0.8em",
                 backgroundColor: `${bgColor}`,
               }}
               align="right"
             >
-              Trace Count
+              TRC COUNT
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {ntrc}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{ntrc}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
               PRF
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {prf}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{prf}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
               ADC
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {adc}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{adc}</TableCell>
           </TableRow>
         </TableBody>
       </Table>

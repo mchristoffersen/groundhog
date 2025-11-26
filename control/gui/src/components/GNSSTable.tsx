@@ -56,123 +56,84 @@ export default function GNSSTable() {
   return (
     <TableContainer component={Paper} sx={{ width: "100%" }}>
       <Table size="small" aria-label="simple table">
-        <TableBody sx={{ fontSize: "1.5em" }}>
+        <TableBody>
           <TableRow>
             <TableCell
               sx={{
                 minWidth: "10ch",
-                fontSize: "0.8em",
                 backgroundColor: `${bgColor}`,
               }}
               align="right"
             >
-              Fix
+              FIX
             </TableCell>
-            <TableCell
-              sx={{ minWidth: "15ch", fontSize: "0.8em", width: "75%" }}
-            >
-              {fix}
-            </TableCell>
+            <TableCell sx={{ minWidth: "15ch", width: "75%" }}>{fix}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              Date
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              DATE
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {date}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{date}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              Time
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              TIME
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {time}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{time}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              Lon
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              LON
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {lon}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{lon}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              Lat
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              LAT
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {lat}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{lat}</TableCell>
           </TableRow>
           <TableRow>
-            <TableCell
-              sx={{ fontSize: "0.8em", backgroundColor: `${bgColor}` }}
-              align="right"
-            >
-              Hgt
+            <TableCell sx={{ backgroundColor: `${bgColor}` }} align="right">
+              HGT
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {hgt}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{hgt}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell
               sx={{
                 whiteSpace: "nowrap",
-                fontSize: "0.8em",
                 backgroundColor: `${bgColor}`,
               }}
               align="right"
             >
-              Sats (U/S)
+              SATS (U/S)
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {sat}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{sat}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell
               sx={{
                 whiteSpace: "nowrap",
-                fontSize: "0.8em",
                 backgroundColor: `${logBgColor}`,
               }}
               align="right"
             >
-              Log File
+              LOG FILE
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {logFile}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{logFile}</TableCell>
           </TableRow>
           <TableRow>
             <TableCell
               sx={{
                 whiteSpace: "nowrap",
-                fontSize: "0.8em",
                 backgroundColor: `${logBgColor}`,
               }}
               align="right"
             >
-              Log Size
+              LOG SIZE
             </TableCell>
-            <TableCell sx={{ fontSize: "0.8em", width: "75%" }}>
-              {logSize}
-            </TableCell>
+            <TableCell sx={{ width: "75%" }}>{logSize}</TableCell>
           </TableRow>
         </TableBody>
       </Table>

@@ -1,3 +1,13 @@
+
+@font-face {
+  font-family: "DepartureMono";
+  src: url("./assets/fonts/DepartureMono-Regular.woff2") format("woff2"),
+       url("./assets/fonts/DepartureMono-Regular.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+}
+
+
 html, 
 body {
     max-height: 100vh;
