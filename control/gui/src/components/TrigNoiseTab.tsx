@@ -24,7 +24,6 @@ export default function TrigNoiseTab({ tnConsoleText, addToTnConsole }: Props) {
         </Grid>
         <Grid size={6}>
           <Button
-            sx={{ height: "8vh", width: "50%", fontSize: "3em" }}
             variant="contained"
             color="success"
             size="large"
@@ -36,7 +35,6 @@ export default function TrigNoiseTab({ tnConsoleText, addToTnConsole }: Props) {
 
         <Grid size={6}>
           <Button
-            sx={{ height: "8vh", width: "50%", fontSize: "3em" }}
             variant="contained"
             color="success"
             size="large"

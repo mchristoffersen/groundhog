@@ -26,11 +26,38 @@ const theme = createTheme({
       },
     },
 
+    MuiButtonBase: {
+      defaultProps: {
+        disableRipple: true, // disables ripple everywhere
+      },
+    },
+
     MuiTableCell: {
       styleOverrides: {
         root: ({}) => ({
           fontSize: "1rem",
         }),
+      },
+    },
+
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          color: "#5f5f5fff",
+          "&.Mui-selected": {
+            color: "#000000ff",
+          },
+        },
+      },
+    },
+
+    MuiTabs: {
+      styleOverrides: {
+        indicator: {
+          backgroundColor: "#000000ff",
+          height: 3,
+          transition: "background-color 0.3s ease, transform 0.6s ease",
+        },
       },
     },
   },
